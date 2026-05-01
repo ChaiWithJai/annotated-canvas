@@ -14,45 +14,44 @@ This audit is intentionally reviewer-facing: it separates what works now from wh
 ## Current State
 
 - The repository is public: `https://github.com/ChaiWithJai/annotated-canvas`.
-- Production is live through GitHub Actions deploy-from-main. Run `25212955639` completed successfully from head SHA `2963f02d37bff4d862e00027f7774688ff9f5e26`.
+- Production is live through GitHub Actions deploy-from-main. Run `25216210247` completed successfully from head SHA `afa7e3dda7645c875785546f904798e449339ec2`.
   - Web: `https://annotated-canvas.pages.dev`
   - API health: `https://annotated-canvas-api.jaybhagat841.workers.dev/api/health`
   - Approved public smoke annotation: `https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`
 - Issue #22 is closed. Cloudflare deployment plumbing is no longer a bounty blocker.
-- The deployed MVP has API-level smoke for health, feed, profile, permalink, source link, 60-second media metadata, and signed-out/auth-not-configured behavior.
-- The Chrome extension builds to `dist/extension`, loads unpacked locally, opens as an MV3 side panel, saves an API base URL, and has local current-tab publish evidence.
-- Production extension p95 proof is still open: exact selected text, exact real media `currentTime`, browser no-network rejection for >90 seconds, and audio/microphone behavior are not yet recorded against production.
-- Reviewer onboarding still needs the #38 happy/sad path and Krug pass before filming the demo video.
+- The deployed MVP has smoke for health, feed, profile, permalink, source link, 60-second media metadata, comments/claim intake, and signed-out/auth-not-configured behavior.
+- The Chrome extension builds to `dist/extension`, loads unpacked locally, opens as an MV3 side panel, saves an API base URL, and has merged production p95 evidence from #43.
+- Issues #23, #30, and #38 are closed. Current-tab capture, exact selected text, exact media seconds, >90-second no-network rejection, and reviewer journey/Krug evidence are no longer bounty blockers.
 - Real OAuth provider exchange, durable recorded-audio storage, and owned-media 240p policy remain open.
 
 ## Evidence Split
 
-- **Working deployed MVP**: public Pages/Worker URLs, feed/profile/permalink routes, source-linked public annotation, comments/claim intake from earlier smoke, text commentary, and API-side 90-second validation.
-- **API-level smoke**: the approved smoke annotation `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` proves the production API can store and serve a source-linked 60-second annotation; it does not prove a real Chrome extension selected the quote or captured media time from a page.
-- **Extension p95 proof**: still required in #30/#23 before claiming the sidebar capture journey is bounty-complete.
-- **Reviewer journey proof**: #38 must turn marketing, signup, local extension install, extension capture, feed return, comments, and claim filing into one obvious happy/sad path before the demo video.
+- **Working deployed MVP**: public Pages/Worker URLs, feed/profile/permalink routes, source-linked public annotation, comments/claim intake from earlier smoke, text commentary, web URL composer, extension p95 capture proof, and API/extension-side 90-second validation.
+- **API-level smoke**: the approved smoke annotation `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` proves the production API can store and serve a source-linked 60-second annotation.
+- **Extension p95 proof**: PR #43 records selected-text, media-time, current-tab publish, over-90 no-network rejection, stored API reads, public permalinks, and audio upload fallback.
+- **Reviewer journey proof**: #38 records the marketing/feed/signup/local-extension/capture/return loop plus Krug guardrails before demo filming.
 - **Human/platform blockers**: #24 needs real Google/X provider credentials and token exchange; #26 needs durable audio storage and a 240p/sub-480p owned-media decision.
 
 ## Bounty Requirement Matrix
 
 | Bounty requirement | Status bucket | Current evidence | Remaining gap | Delivery issue |
 | --- | --- | --- | --- | --- |
-| Sidebar Chrome extension | Working now | `dist/extension` loads unpacked; side panel opens; local publish proof in #30. | Production API-base publish and p95 capture evidence from a real browser. | #30, #23 |
-| Highlight and clip media from any website | Deployed but limited | Current-tab URL/title, selected-text path, media time-range controls, and API-level production smoke exist. | Exact selected text and real media `currentTime` must be proven against production payloads. | #23, #30 |
+| Sidebar Chrome extension | Working now | `dist/extension` loads unpacked; side panel opens; production p95 evidence from PR #43 proves API-base persistence, current-tab publish, selected text, media time, and over-90 no-network rejection. | Chrome Web Store distribution remains out of scope for MVP; reviewers load unpacked. | closed #30, closed #23 |
+| Highlight and clip media from any website | Working now for text/video references | Current-tab URL/title, selected-text path, media time-range controls, API-level smoke, and extension p95 selected-text/media-time proof exist. | Durable recorded audio and owned-video processing remain separate media work. | closed #23, closed #30, #26 |
 | Add commentary and annotations | Deployed but limited | Text commentary publishes; approved public annotation exists; earlier comment/claim smoke exists. | Recorded audio commentary is not durably stored in production. | #26 |
 | Landing page linking back to original source | Working now | Approved public permalink `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` returns the canonical Pages `permalink_url` and source link. | Continue to verify every created annotation carries `source_url`. | #21, #28 |
 | Public social feed | Working now | Public feed includes the approved smoke annotation; profile route returns `200`. | Final packet should use fresh proof immediately before external submission. | #28 |
-| Follow and engage with annotations | Working now | Comments and engagement paths are implemented; follow UI was wired to API before PR #31 merge. | Include follow/comment proof in final demo, not only local tests. | #23, closed #25 |
+| Follow and engage with annotations | Working now | Comments and engagement paths are implemented; follow UI was wired to API before PR #31 merge. | Include follow/comment proof in final demo, not only local tests. | #28, closed #25 |
 | Account via X or Google | Blocked by human credentials/secrets | Production now fails closed with visible not-configured messages when provider secrets are absent. | Google/X apps, client secrets, token exchange, user/session creation, extension handoff. | #24 |
-| URL input or current page | Deployed but limited | Web URL composer and extension current-page capture exist. | Production extension publish and exact payload evidence still required. | #23, #30 |
-| Prompt for start/end or text section | Deployed but limited | UI/API support text quote and media start/end; API rejects invalid duration. | Browser proof must show user-entered values are the values sent and stored. | #23, #30 |
-| Max clip size 90 seconds | Working now | Contract/API tests reject media over 90 seconds; browser plan records client-side proof requirement. | p95 proof that extension blocks before production network request. | #30 |
+| URL input or current page | Working now | Web URL composer is tested; extension current-page capture has production p95 proof. | Final demo should show both paths clearly. | #28, closed #23, closed #30 |
+| Prompt for start/end or text section | Working now | UI/API support text quote and media start/end; extension p95 proves selected quote and exact media seconds. | Final demo should reuse the p95 evidence links. | #28, closed #23, closed #30 |
+| Max clip size 90 seconds | Working now | Contract/API tests reject media over 90 seconds; extension p95 shows no production `POST /api/annotations` for a 91-second range. | None for MVP. | closed #30 |
 | Downgrade clip to 240p / below 480p | Not yet implemented | Current MVP keeps third-party media source-linked by reference and now rejects upload/storage fields on third-party media contracts. | Human product/legal decision and owned-upload processing rule are required. | #26 |
 | Text or recorded audio commentary | Deployed but limited | Text works; audio upload endpoint returns an intent when R2 is unavailable; API rejects audio commentary with no `audio_asset_id`. | R2 or alternate storage, upload size/type rejection, finalize semantics, permalink playback/loading proof. | #26 |
 | Users can leave comments | Working now | Public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. | Re-run before final submission if the seed data changes. | closed #25, #28 |
 | File a claim | Working now | Public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. | Final demo should explain claim is notice intake, not automatic takedown. | closed #27, #28 |
-| All content links to original source | Working now | Third-party clip contracts require `source_url`; permalink shows original source link. | Keep this invariant in extension p95 evidence. | #21, #23 |
-| Submit to annotated.lovable.app | Deployed but limited | Reviewer packet has live URLs, demo script, approved smoke annotation, and honest blocker list. | Human decision to submit with disclosed gaps or wait for #23/#24/#26/#30/#38. | #28 |
+| All content links to original source | Working now | Third-party clip contracts require `source_url`; permalink shows original source link; extension p95 stores original source metadata. | Keep this invariant in final demo. | #21, #28 |
+| Submit to annotated.lovable.app | Deployed but limited | Reviewer packet has live URLs, demo script, approved smoke annotation, p95 extension evidence, and honest blocker list. | Human decision to submit with #24/#26 disclosed or wait for those gates. | #28 |
 
 ## Issue Acceptance Criteria
 
@@ -61,7 +60,7 @@ This audit is intentionally reviewer-facing: it separates what works now from wh
 - [ ] Gap audit and submission packet use the same status buckets.
 - [ ] Every open bounty gap links to a child issue or explicit product decision.
 - [ ] Final submission language distinguishes live MVP evidence from unfinished bounty-critical criteria.
-- [ ] Close only after #23/#24/#26/#28/#30/#38 are completed or deliberately disclosed by the submitter.
+- [ ] Close only after #24/#26/#28 are completed or deliberately disclosed by the submitter.
 
 Learning notes:
 
@@ -82,14 +81,14 @@ Learning notes:
 - **Developer/user must understand**: local Wrangler deployment proved the app could run; GitHub deploy-from-main now proves repeatable release control.
 - **Pitfall**: a successful Worker deploy can still fail evidence collection if the CI parser expects the wrong log shape.
 - **p50 test**: `GET /api/health`, web root, feed, profile, permalink, comment, and claim work after deploy.
-- **p95 test**: run `25212955639` applied remote D1 migrations, deployed the Worker, built the web app against the deployed Worker URL, deployed Pages, and passed public smoke from the deployed commit.
+- **p95 test**: latest run `25216210247` applied remote D1 migrations, deployed the Worker, built the web app against the deployed Worker URL, deployed Pages, and passed public smoke from the deployed commit.
 
-### #23 Complete Extension And Web Capture Journey
+### Closed #23 Complete Extension And Web Capture Journey
 
-- [ ] Web URL capture and extension current-page capture both produce valid annotation payloads.
-- [ ] Selected text is preserved from browser selection to side panel, request payload, and stored annotation.
-- [ ] Media start/end/duration are preserved from real page state to payload and stored annotation.
-- [ ] API/source-link invariants are tested at contract and browser boundaries.
+- [x] Web URL capture and extension current-page capture both produce valid annotation payloads.
+- [x] Selected text is preserved from browser selection to side panel, request payload, and stored annotation.
+- [x] Media start/end/duration are preserved from real page state to payload and stored annotation.
+- [x] API/source-link invariants are tested at contract and browser boundaries.
 
 Learning notes:
 
@@ -146,15 +145,15 @@ Learning notes:
 - **p50 test**: reviewer can run the demo without reading the code.
 - **p95 test**: reviewer can reproduce the highest-risk claims using issue-linked evidence.
 
-### #30 Local Chrome Extension Install And Bounty Smoke Verification
+### Closed #30 Local Chrome Extension Install And Bounty Smoke Verification
 
-- [ ] Rebuilt `dist/extension` loads unpacked after PR #31.
-- [ ] Settings saves production Worker API base without source edits.
-- [ ] Production publish from a real tab creates an annotation visible through API/feed/permalink.
-- [ ] Selected-text context menu proof preserves the exact quote.
-- [ ] Real video/audio proof preserves exact start/end/duration.
-- [ ] >90-second range is blocked in the browser before any production publish request.
-- [ ] Audio/microphone behavior is tested or explicitly tied back to #26.
+- [x] Rebuilt `dist/extension` loads unpacked after PR #31.
+- [x] Settings saves production Worker API base without source edits.
+- [x] Production publish from a real tab creates an annotation visible through API/feed/permalink.
+- [x] Selected-text proof preserves the exact quote.
+- [x] Real media proof preserves exact start/end/duration.
+- [x] >90-second range is blocked in the browser before any production publish request.
+- [x] Audio upload fallback is tested and explicitly tied back to #26.
 
 Learning notes:
 
@@ -163,12 +162,12 @@ Learning notes:
 - **p50 test**: side panel opens, saves API base, captures current tab, publishes one annotation.
 - **p95 test**: context menu selection, media current time, network suppression on invalid duration, and audio fallback are evidenced.
 
-### #38 Reviewer Journey Happy/Sad Paths And Krug Pass
+### Closed #38 Reviewer Journey Happy/Sad Paths And Krug Pass
 
-- [ ] Marketing, feed, signup, local extension install, capture, publish, feed return, comment, follow/engage, and claim steps are documented as one reviewer journey.
-- [ ] The web app exposes the local unpacked-extension path because Chrome Web Store distribution is not part of the MVP.
-- [ ] Auth, extension install, wrong API URL, no selection, over-90 media, audio/R2, and claim-submission recovery states have clear copy and test evidence.
-- [ ] The final demo script follows the same happy/sad paths without requiring improvisation.
+- [x] Marketing, feed, signup, local extension install, capture, publish, feed return, comment, follow/engage, and claim steps are documented as one reviewer journey.
+- [x] The web app exposes the local unpacked-extension path because Chrome Web Store distribution is not part of the MVP.
+- [x] Auth, extension install, wrong API URL, no selection, over-90 media, audio/R2, and claim-submission recovery states have clear copy and test evidence.
+- [x] The final demo script follows the same happy/sad paths without requiring improvisation.
 
 Learning notes:
 
@@ -181,6 +180,4 @@ Learning notes:
 
 - **#24**: Google/X OAuth needs provider apps, secrets, token exchange, user/session persistence, and extension handoff proof.
 - **#26**: R2 is not enabled, audio storage is fallback-only, and owned-media 240p policy is undecided.
-- **#30/#23**: production extension p95 smoke evidence is not yet recorded.
-- **#38**: reviewer journey happy/sad paths and Krug pass are not yet merged into the product/docs.
-- **#28**: external submission should wait for these gates or explicitly disclose them.
+- **#28**: external submission should disclose #24/#26 or wait for those gates.
