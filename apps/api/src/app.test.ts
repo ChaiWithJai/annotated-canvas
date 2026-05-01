@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { fixtures } from "@annotated/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
-import { handleRequest } from "./app";
+import { buildProviderAuthorizationUrl, createOAuthCodeChallenge, handleRequest } from "./app";
 import { InMemoryRepository } from "./repository";
 import { RecordingJobQueue } from "./queue";
-import type { Env } from "./types";
+import type { Env, OAuthProviderClient, OAuthProviderProfile, OAuthProviderTokens } from "./types";
 
 const env: Env = {
   APP_ORIGIN: "http://localhost:5173",
@@ -36,6 +36,107 @@ function createSessionKv(seed: Record<string, string> = {}) {
   return Object.assign(kv, { store }) as unknown as KVNamespace & { store: Map<string, string> };
 }
 
+function createAuthDb() {
+  const users = new Map<string, any>();
+  const oauthAccounts = new Map<string, any>();
+  const sessions = new Map<string, any>();
+
+  const db = {
+    users,
+    oauthAccounts,
+    sessions,
+    prepare(sql: string) {
+      let bindings: any[] = [];
+      return {
+        bind(...values: any[]) {
+          bindings = values;
+          return this;
+        },
+        async first() {
+          if (sql.includes("FROM oauth_accounts")) {
+            const [provider, providerAccountId] = bindings;
+            const account = Array.from(oauthAccounts.values()).find(
+              (item) => item.provider === provider && item.provider_account_id === providerAccountId
+            );
+            if (!account) return null;
+            return users.get(account.user_id) ?? null;
+          }
+
+          if (sql.includes("SELECT id FROM users WHERE handle = ?")) {
+            const [handle] = bindings;
+            return Array.from(users.values()).find((item) => item.handle === handle) ?? null;
+          }
+
+          return null;
+        },
+        async run() {
+          if (sql.startsWith("INSERT INTO users")) {
+            const [id, handle, displayName, avatarUrl, bio] = bindings;
+            users.set(id, {
+              id,
+              handle,
+              display_name: displayName,
+              avatar_url: avatarUrl,
+              bio
+            });
+          } else if (sql.startsWith("UPDATE users SET")) {
+            const [handle, displayName, avatarUrl, bio, id] = bindings;
+            const existing = users.get(id);
+            users.set(id, {
+              ...existing,
+              id,
+              handle,
+              display_name: displayName,
+              avatar_url: avatarUrl,
+              bio
+            });
+          } else if (sql.startsWith("INSERT INTO oauth_accounts")) {
+            const [id, userId, provider, providerAccountId] = bindings;
+            oauthAccounts.set(id, {
+              id,
+              user_id: userId,
+              provider,
+              provider_account_id: providerAccountId
+            });
+          } else if (sql.startsWith("INSERT OR REPLACE INTO sessions")) {
+            const [id, userId, expiresAt] = bindings;
+            sessions.set(id, {
+              id,
+              user_id: userId,
+              expires_at: expiresAt
+            });
+          } else if (sql.startsWith("DELETE FROM sessions")) {
+            sessions.delete(bindings[0]);
+          }
+          return { success: true };
+        }
+      };
+    }
+  };
+
+  return db as unknown as D1Database & {
+    users: Map<string, any>;
+    oauthAccounts: Map<string, any>;
+    sessions: Map<string, any>;
+  };
+}
+
+function createOAuthClient(profile: OAuthProviderProfile, tokens: OAuthProviderTokens = { access_token: "provider-token" }) {
+  const calls: Array<{ type: "exchange"; input: any } | { type: "profile"; provider: string; tokens: OAuthProviderTokens }> = [];
+  const client: OAuthProviderClient & { calls: typeof calls } = {
+    calls,
+    async exchangeCode(input) {
+      calls.push({ type: "exchange", input });
+      return tokens;
+    },
+    async fetchProfile(provider, fetchedTokens) {
+      calls.push({ type: "profile", provider, tokens: fetchedTokens });
+      return profile;
+    }
+  };
+  return client;
+}
+
 describe("API router regression coverage", () => {
   let repository: InMemoryRepository;
   let jobs: RecordingJobQueue;
@@ -51,6 +152,35 @@ describe("API router regression coverage", () => {
 
     expect(health.status).toBe(200);
     expect((await body(feed)).items).toHaveLength(3);
+  });
+
+  it("builds provider authorization URLs with PKCE and provider scopes", async () => {
+    const challenge = await createOAuthCodeChallenge("test-verifier");
+    const googleUrl = new URL(
+      buildProviderAuthorizationUrl(
+        "google",
+        "google-client",
+        "https://api.annotated.test/api/auth/google/callback?state=state_1&return_to=http%3A%2F%2Flocalhost%3A5173%2F",
+        "state_1",
+        challenge
+      )
+    );
+    const xUrl = new URL(
+      buildProviderAuthorizationUrl(
+        "x",
+        "x-client",
+        "https://api.annotated.test/api/auth/x/callback?state=state_2&return_to=http%3A%2F%2Flocalhost%3A5173%2F",
+        "state_2",
+        challenge
+      )
+    );
+
+    expect(googleUrl.origin).toBe("https://accounts.google.com");
+    expect(googleUrl.searchParams.get("scope")).toBe("openid email profile");
+    expect(googleUrl.searchParams.get("code_challenge")).toBe(challenge);
+    expect(googleUrl.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(xUrl.origin).toBe("https://twitter.com");
+    expect(xUrl.searchParams.get("scope")).toBe("users.read tweet.read");
   });
 
   it("serves p50 auth start, callback, and extension-token routes", async () => {
@@ -115,20 +245,30 @@ describe("API router regression coverage", () => {
     expect(missingKvPayload.authorization_url).toBeUndefined();
   });
 
-  it("validates and consumes oauth callback state before returning not implemented", async () => {
+  it("validates state, exchanges provider code, persists local user and session, and rejects replay", async () => {
     const sessionKv = createSessionKv();
+    const db = createAuthDb();
+    const oauth = createOAuthClient({
+      provider: "google",
+      provider_account_id: "google-user-123",
+      handle: "mira.oauth",
+      display_name: "Mira OAuth",
+      avatar_url: "https://profiles.example/mira.png"
+    });
     const oauthEnv: Env = {
       ...env,
       AUTH_MODE: "oauth",
       GOOGLE_CLIENT_ID: "google-client",
       GOOGLE_CLIENT_SECRET: "google-secret",
-      SESSION_KV: sessionKv
+      SESSION_KV: sessionKv,
+      DB: db
     };
 
     const start = await body(
       await handleRequest(request("/api/auth/google/start?return_to=/after-auth"), oauthEnv, { repository, jobs })
     );
     expect(start.authorization_url).toContain("accounts.google.com");
+    expect(start.authorization_url).toContain("code_challenge=");
     expect(sessionKv.store.has(`oauth_state:${start.state}`)).toBe(true);
 
     const missingCode = await handleRequest(request(`/api/auth/google/callback?state=${start.state}`), oauthEnv, {
@@ -149,19 +289,108 @@ describe("API router regression coverage", () => {
     const firstCallback = await handleRequest(
       request(`/api/auth/google/callback?state=${start.state}&code=auth-code`),
       oauthEnv,
+      { repository, jobs, oauth }
+    );
+    expect(firstCallback.status).toBe(302);
+    expect(firstCallback.headers.get("Location")).toBe("http://localhost:5173/after-auth");
+    expect(firstCallback.headers.get("Set-Cookie")).toContain("annotated_session=");
+    expect(sessionKv.store.has(`oauth_state:${start.state}`)).toBe(false);
+    expect(db.users.size).toBe(1);
+    expect(db.oauthAccounts.size).toBe(1);
+    expect(db.sessions.size).toBe(1);
+
+    const exchangeCall = oauth.calls.find(
+      (call): call is { type: "exchange"; input: any } => call.type === "exchange"
+    );
+    expect(exchangeCall?.input).toMatchObject({
+      provider: "google",
+      code: "auth-code",
+      client_id: "google-client",
+      client_secret: "google-secret"
+    });
+    expect(exchangeCall?.input.redirect_uri).toBe("https://api.annotated.test/api/auth/google/callback");
+    expect(exchangeCall?.input.code_verifier).toEqual(expect.any(String));
+
+    const sessionId = firstCallback.headers.get("Set-Cookie")?.match(/annotated_session=([^;]+)/)?.[1];
+    expect(sessionId).toBeTruthy();
+    const me = await handleRequest(
+      request("/api/me", {
+        headers: {
+          Cookie: `annotated_session=${sessionId}`
+        }
+      }),
+      oauthEnv,
       { repository, jobs }
     );
-    expect(firstCallback.status).toBe(501);
-    expect((await body(firstCallback)).error.code).toBe("not_implemented");
-    expect(sessionKv.store.has(`oauth_state:${start.state}`)).toBe(false);
+    expect(me.status).toBe(200);
+    expect((await body(me)).user).toMatchObject({
+      handle: "mira_oauth",
+      display_name: "Mira OAuth"
+    });
 
     const replayedCallback = await handleRequest(
       request(`/api/auth/google/callback?state=${start.state}&code=auth-code`),
       oauthEnv,
-      { repository, jobs }
+      { repository, jobs, oauth }
     );
     expect(replayedCallback.status).toBe(400);
     expect((await body(replayedCallback)).error.code).toBe("invalid_oauth_state");
+  });
+
+  it("fails oauth callback closed for missing config without consuming state", async () => {
+    const sessionKv = createSessionKv({
+      "oauth_state:state_missing_secret": JSON.stringify({
+        provider: "x",
+        return_to: "http://localhost:5173/"
+      })
+    });
+    const response = await handleRequest(
+      request("/api/auth/x/callback?state=state_missing_secret&code=auth-code"),
+      {
+        ...env,
+        AUTH_MODE: "oauth",
+        X_CLIENT_ID: "x-client",
+        SESSION_KV: sessionKv
+      },
+      { repository, jobs }
+    );
+
+    expect(response.status).toBe(503);
+    expect((await body(response)).error.code).toBe("auth_not_configured");
+    expect(sessionKv.store.has("oauth_state:state_missing_secret")).toBe(true);
+  });
+
+  it("consumes valid state and reports provider failures without creating a session", async () => {
+    const sessionKv = createSessionKv();
+    const oauthEnv: Env = {
+      ...env,
+      AUTH_MODE: "oauth",
+      X_CLIENT_ID: "x-client",
+      X_CLIENT_SECRET: "x-secret",
+      SESSION_KV: sessionKv,
+      DB: createAuthDb()
+    };
+    const failingOAuth: OAuthProviderClient = {
+      async exchangeCode() {
+        throw new Error("provider_unavailable");
+      },
+      async fetchProfile() {
+        throw new Error("unreachable");
+      }
+    };
+
+    const start = await body(await handleRequest(request("/api/auth/x/start?return_to=/"), oauthEnv, { repository, jobs }));
+    const response = await handleRequest(
+      request(`/api/auth/x/callback?state=${start.state}&code=auth-code`),
+      oauthEnv,
+      { repository, jobs, oauth: failingOAuth }
+    );
+    const payload = await body(response);
+
+    expect(response.status).toBe(502);
+    expect(payload.error.code).toBe("oauth_provider_error");
+    expect(sessionKv.store.has(`oauth_state:${start.state}`)).toBe(false);
+    expect(Array.from(sessionKv.store.keys()).some((key) => key.startsWith("session:"))).toBe(false);
   });
 
   it("requires a valid oauth session for me and extension-token", async () => {
@@ -222,7 +451,9 @@ describe("API router regression coverage", () => {
       { repository, jobs }
     );
     expect(token.status).toBe(200);
-    expect((await body(token)).token_type).toBe("Bearer");
+    const tokenPayload = await body(token);
+    expect(tokenPayload.token_type).toBe("Bearer");
+    expect(sessionKv.store.has(`extension_token:${tokenPayload.token}`)).toBe(true);
   });
 
   it("deletes the session on logout when session KV is available", async () => {

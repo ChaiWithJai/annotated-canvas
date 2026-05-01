@@ -92,6 +92,8 @@ Validation rules:
 | `POST` | `/api/auth/logout` | Revoke current session. |
 | `GET` | `/api/me` | Return current user and auth capabilities. |
 
+In `AUTH_MODE=oauth`, provider callbacks exchange the authorization code with Google or X, fetch the provider profile, link it to `users`/`oauth_accounts`, and mint both a KV-backed browser session and D1 `sessions` row when D1 is bound. `POST /api/auth/extension-token` requires the browser session in OAuth mode and stores a one-hour KV handoff token under `extension_token:*`.
+
 ### Capture and Publish
 
 | Method | Path | Purpose |
