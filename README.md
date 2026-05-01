@@ -35,6 +35,7 @@ The product is based on the `Annotated` bounty context captured in this reposito
 - `docs/cloudflare-cli.md` defines Cloudflare CLI setup and resource commands.
 - `docs/testing-strategy.md` defines the testing trophy strategy with P50/P95 coverage.
 - `docs/issue-learning-loop.md` defines how issues should document learning, pitfalls, and roadblocks.
+- `docs/bounty-gap-audit.md` and `docs/submission-packet.md` define the current bounty readiness packet, including live URLs, known limitations, and open issue gates.
 
 ## Local Development
 

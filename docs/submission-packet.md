@@ -2,6 +2,17 @@
 
 Reviewer-facing packet for the Annotated MVP bounty described in `bounty.txt`.
 
+## Reviewer Stance
+
+This packet should be submitted as an honest live-MVP packet, not as a claim that every bounty criterion is fully closed. The canonical gap audit is `docs/bounty-gap-audit.md`.
+
+Status buckets used below:
+
+- **Working now**: implemented and backed by local or production evidence.
+- **Deployed but limited**: public URL exists, but the feature is demo/fallback/partial.
+- **Blocked by human credentials/secrets**: external account setup or secrets are required before final proof.
+- **Not yet implemented**: product/code/policy work remains.
+
 ## Submission Links
 
 Fill these in immediately before posting to `https://annotated.lovable.app`.
@@ -151,22 +162,36 @@ curl -X POST http://localhost:8787/api/claims \
 
 | Bounty item | Reviewer evidence | Current status |
 | --- | --- | --- |
-| Sidebar Chrome extension | MV3 side panel loaded from `dist/extension`; side panel opens on source pages. | Local Chrome proof recorded in #30; broader capture hardening remains in #23. |
-| Highlight and clip text/audio/video from any website | Current-tab context, selected text, and media time-range UI/API payloads. | Partial, tracked by #23 and #26. |
-| Add commentary and annotations | Text commentary publish path and API contract. | Partial, audio commentary tracked by #26. |
-| Landing page links back to original source | Annotation permalink includes source metadata and original source link. | Public permalink smoke proof exists. |
-| Public social feed | Feed route and API feed path. | Public Worker and Pages smoke proof exists. |
-| Users can follow and engage | Feed/profile engagement and comments work from the local MVP stream. | Comments work from closed #25; broader parity remains part of review proof. |
-| Account via X or Google | `/api/auth/google/start` and `/api/auth/x/start` demo mode; production OAuth plan. | Partial, real provider exchange blocked by #24 and external secrets. |
-| User can enter URL or use current page | Web URL flow and extension current-page capture surface. | Partial, tracked by #23 for regression-proof binding. |
-| Prompt for start/end or text section | Extension capture controls and API validation for media duration. | Partial, #23 tracks exact UI-to-payload verification. |
-| Max clip size 90 seconds | Contracts/API reject over-90-second media references. | Implemented locally. |
-| Downgrade clip to 240p or below 480p | Product decision: third-party media is source-linked by reference; owned uploads need processing policy. | Blocked by #26. |
-| Text or recorded audio commentary | Text commentary works; upload/commentary contract exists. | Audio recording/finalize blocked by #26. |
-| Users can leave comments | Comment resources and claim/feed docs reflect local completion. | Public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. |
-| File a claim button | Claim button/modal and `POST /api/claims` notice intake. | Public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. |
-| All content links to original source | `source_url` required for third-party clips. | Implemented for third-party contracts/API. |
-| Submit to annotated.lovable.app | Packet, URLs, demo script, and checklist. | Packet has live URLs; external submission still needs final extension p95 proof and known-limitations disclosure. |
+| Sidebar Chrome extension | MV3 side panel loaded from `dist/extension`; side panel opens on source pages. | **Working now** locally; production p50/p95 proof remains #30/#23. |
+| Highlight and clip text/audio/video from any website | Current-tab context, selected text, and media time-range UI/API payloads. | **Deployed but limited**; exact selected-text and real media-time proof remain #23/#30. |
+| Add commentary and annotations | Text commentary publish path and API contract. | **Deployed but limited**; recorded audio is fallback-only until #26. |
+| Landing page links back to original source | Annotation permalink includes source metadata and original source link. | **Working now** with public permalink smoke. |
+| Public social feed | Feed route and API feed path. | **Working now** with public Worker and Pages smoke. |
+| Users can follow and engage | Feed/profile engagement, follow route, comments, and counts. | **Working now**; include fresh follow/comment proof in final demo. |
+| Account via X or Google | Sign-in buttons call the API and production fails closed when secrets are absent. | **Blocked by human credentials/secrets**; real provider exchange remains #24. |
+| User can enter URL or use current page | Web URL flow and extension current-page capture surface. | **Deployed but limited**; production extension payload proof remains #23/#30. |
+| Prompt for start/end or text section | Extension capture controls and API validation for media duration. | **Deployed but limited**; exact UI-to-payload verification remains #23/#30. |
+| Max clip size 90 seconds | Contracts/API reject over-90-second media references. | **Working now** at contract/API; browser no-network proof remains #30. |
+| Downgrade clip to 240p or below 480p | Third-party media is source-linked by reference; owned uploads need processing policy. | **Not yet implemented**; product/legal decision remains #26. |
+| Text or recorded audio commentary | Text commentary works; audio upload endpoint returns an intent without R2. | **Deployed but limited**; durable audio storage/finalize remains #26. |
+| Users can leave comments | Comment resources and claim/feed docs reflect local completion. | **Working now**; public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. |
+| File a claim button | Claim button/modal and `POST /api/claims` notice intake. | **Working now**; public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. |
+| All content links to original source | `source_url` required for third-party clips. | **Working now** for third-party contracts/API. |
+| Submit to annotated.lovable.app | Packet, URLs, demo script, and checklist. | **Deployed but limited**; external submission needs final disclosure or completion of open gates. |
+
+## Open-Issue Acceptance Notes
+
+These notes are the reviewer handoff for the seven open tickets. The longer form lives in `docs/bounty-gap-audit.md`.
+
+| Issue | Close only when | Learning note | p50 evidence | p95 evidence |
+| --- | --- | --- | --- | --- |
+| #21 Bounty readiness | The status buckets are current and every gap is closed or explicitly disclosed. | A live MVP is not a complete bounty claim. | Public URLs and demo script work. | No bounty-critical limitation is hidden. |
+| #22 Cloudflare deployment | GitHub Actions deploy-from-main runs and public smoke passes from that commit. | Local Wrangler proves capability; CI deploy proves repeatability. | Local-deployed web/API smoke works. | GitHub-deployed smoke works after secrets are installed. |
+| #23 Capture journey | Web URL/current-page, selected text, and media time payloads reconcile with stored annotations. | Functional fields are not proof unless payloads match user intent. | One normal annotation publishes. | Exact quote/timecode/source integrity are proven. |
+| #24 OAuth | Google/X provider exchange, sessions, and extension handoff work with real credentials. | Honest not-configured failure is safer than fake account creation. | Signed-out and provider-start behavior is visible. | Invalid/replayed state, logout, and anonymous extension-token rejection are tested. |
+| #26 Audio/240p | Recorded audio persists and owned-media 240p/sub-480p policy is implemented or explicitly excluded. | Third-party references and owned media processing are different rights surfaces. | Text commentary and audio intent behavior are clear. | Stored audio, upload validation, and owned-video rendition policy are enforceable. |
+| #28 Submission package | The external post uses current URLs, smoke IDs, and known limitations. | The packet is a reviewer script plus truth-in-advertising checklist. | Reviewer can run the demo without reading code. | Reviewer can reproduce highest-risk claims from linked evidence. |
+| #30 Extension smoke | Production extension p50 and p95 browser evidence is recorded. | MV3 side-panel proof must happen in Chrome, not only in unit tests. | Side panel saves API base and publishes one annotation. | Selected text, media current time, over-90 no-network rejection, and audio fallback are evidenced. |
 
 ## Current Open GitHub Issues
 
@@ -221,6 +246,10 @@ Production smoke evidence recorded on May 1, 2026:
 - Audio commentary recording/finalize and 240p owned-media policy remain unresolved. Tracked by #26.
 - R2 is not enabled in the Cloudflare account yet. Production omits the R2 binding, so audio upload storage remains blocked by #26.
 - Chrome Web Store distribution is not part of the local MVP; reviewers load `dist/extension` unpacked.
+
+Submission language to use if posting before all blockers close:
+
+> Annotated Canvas is live as a source-linked MVP with public feed, permalinks, comments, claim filing, text commentary, and local unpacked Chrome side-panel proof. The remaining disclosed gaps are real Google/X OAuth credentials and token exchange, production extension p95 proof for exact selected text/media timing, durable recorded-audio storage, owned-media 240p processing policy, and GitHub Actions deploy-from-main wiring.
 
 Dependency gate map: `output/reports/gas-town/dependency-gate-map.md`.
 

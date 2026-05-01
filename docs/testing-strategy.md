@@ -10,6 +10,7 @@ P50 features are the normal paths most users hit:
 - Extension side panel has timecode and commentary controls.
 - Text or media annotation publishes with an idempotency key.
 - Claim button opens a notice form.
+- Sign-in controls show the correct signed-out or not-configured state.
 
 P95 features are edge paths that decide whether the system is trustworthy:
 
@@ -19,6 +20,21 @@ P95 features are edge paths that decide whether the system is trustworthy:
 - Claim filing does not automatically remove content.
 - Queue consumers can see duplicate jobs and remain idempotent.
 - Extension state survives MV3 service-worker sleep.
+- OAuth state cannot be replayed and demo auth cannot mint fake production sessions.
+- Selected text and media timecodes are preserved exactly from browser UI to stored annotation.
+- Audio commentary cannot publish arbitrary or unfinalized asset IDs.
+
+## Bounty Readiness Test Matrix
+
+| Area | p50 proof | p95 proof | Current owner |
+| --- | --- | --- | --- |
+| Public web/API | Public web, feed, profile, permalink, health, comment, and claim routes return expected results. | The same smoke runs after GitHub Actions deploy-from-main from `main`. | #22, #28 |
+| Extension capture | Unpacked side panel saves API base and publishes one <=90-second annotation. | Selected-text context menu, real media `currentTime`, and >90-second no-network rejection are recorded in Chrome. | #23, #30 |
+| Auth | Signed-out UI and provider start routes fail clearly when secrets are missing. | Real Google/X callbacks exchange tokens, create sessions, reject invalid/replayed state, and gate extension-token minting. | #24 |
+| Source attribution | Annotation permalink displays the source link and API requires `source_url`. | Every p95 extension publish proves the same source URL in UI, network payload, stored annotation, and permalink. | #21, #23 |
+| Commentary | Text commentary publishes and renders. | Recorded audio persists through storage/finalize and permalink loading, or the limitation is disclosed. | #26 |
+| Media policy | Third-party media references keep original source URL plus start/end. | Owned-video upload policy enforces 240p/sub-480p or is explicitly excluded from the submission. | #26 |
+| Claims/comments | Comment and claim POST flows work and claim does not auto-remove content. | Duplicate/retry behavior remains idempotent and moderation state is auditable. | #28 |
 
 ## Trophy Layers
 
