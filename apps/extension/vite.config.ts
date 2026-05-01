@@ -1,5 +1,8 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { resolve } from "node:path";
+
+const root = resolve(import.meta.dirname, "../..");
 
 export default defineConfig({
   plugins: [react()],
@@ -24,15 +27,15 @@ export default defineConfig({
     alias: [
       {
         find: /^@annotated\/ui\/styles\.css$/,
-        replacement: "/Users/jaybhagat/Documents/New project/packages/ui/src/styles.css"
+        replacement: resolve(root, "packages/ui/src/styles.css")
       },
       {
         find: "@annotated/contracts",
-        replacement: "/Users/jaybhagat/Documents/New project/packages/contracts/src/index.ts"
+        replacement: resolve(root, "packages/contracts/src/index.ts")
       },
       {
         find: "@annotated/ui",
-        replacement: "/Users/jaybhagat/Documents/New project/packages/ui/src/index.tsx"
+        replacement: resolve(root, "packages/ui/src/index.tsx")
       }
     ]
   }
