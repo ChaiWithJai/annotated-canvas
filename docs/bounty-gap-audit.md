@@ -22,6 +22,7 @@ This audit is intentionally reviewer-facing: it separates what works now from wh
 - The deployed MVP has API-level smoke for health, feed, profile, permalink, source link, 60-second media metadata, and signed-out/auth-not-configured behavior.
 - The Chrome extension builds to `dist/extension`, loads unpacked locally, opens as an MV3 side panel, saves an API base URL, and has local current-tab publish evidence.
 - Production extension p95 proof is still open: exact selected text, exact real media `currentTime`, browser no-network rejection for >90 seconds, and audio/microphone behavior are not yet recorded against production.
+- Reviewer onboarding still needs the #38 happy/sad path and Krug pass before filming the demo video.
 - Real OAuth provider exchange, durable recorded-audio storage, and owned-media 240p policy remain open.
 
 ## Evidence Split
@@ -29,6 +30,7 @@ This audit is intentionally reviewer-facing: it separates what works now from wh
 - **Working deployed MVP**: public Pages/Worker URLs, feed/profile/permalink routes, source-linked public annotation, comments/claim intake from earlier smoke, text commentary, and API-side 90-second validation.
 - **API-level smoke**: the approved smoke annotation `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` proves the production API can store and serve a source-linked 60-second annotation; it does not prove a real Chrome extension selected the quote or captured media time from a page.
 - **Extension p95 proof**: still required in #30/#23 before claiming the sidebar capture journey is bounty-complete.
+- **Reviewer journey proof**: #38 must turn marketing, signup, local extension install, extension capture, feed return, comments, and claim filing into one obvious happy/sad path before the demo video.
 - **Human/platform blockers**: #24 needs real Google/X provider credentials and token exchange; #26 needs durable audio storage and a 240p/sub-480p owned-media decision.
 
 ## Bounty Requirement Matrix
@@ -50,7 +52,7 @@ This audit is intentionally reviewer-facing: it separates what works now from wh
 | Users can leave comments | Working now | Public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. | Re-run before final submission if the seed data changes. | closed #25, #28 |
 | File a claim | Working now | Public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. | Final demo should explain claim is notice intake, not automatic takedown. | closed #27, #28 |
 | All content links to original source | Working now | Third-party clip contracts require `source_url`; permalink shows original source link. | Keep this invariant in extension p95 evidence. | #21, #23 |
-| Submit to annotated.lovable.app | Deployed but limited | Reviewer packet has live URLs, demo script, approved smoke annotation, and honest blocker list. | Human decision to submit with disclosed gaps or wait for #23/#24/#26/#30. | #28 |
+| Submit to annotated.lovable.app | Deployed but limited | Reviewer packet has live URLs, demo script, approved smoke annotation, and honest blocker list. | Human decision to submit with disclosed gaps or wait for #23/#24/#26/#30/#38. | #28 |
 
 ## Issue Acceptance Criteria
 
@@ -59,7 +61,7 @@ This audit is intentionally reviewer-facing: it separates what works now from wh
 - [ ] Gap audit and submission packet use the same status buckets.
 - [ ] Every open bounty gap links to a child issue or explicit product decision.
 - [ ] Final submission language distinguishes live MVP evidence from unfinished bounty-critical criteria.
-- [ ] Close only after #23/#24/#26/#28/#30 are completed or deliberately disclosed by the submitter.
+- [ ] Close only after #23/#24/#26/#28/#30/#38 are completed or deliberately disclosed by the submitter.
 
 Learning notes:
 
@@ -157,9 +159,24 @@ Learning notes:
 - **p50 test**: side panel opens, saves API base, captures current tab, publishes one annotation.
 - **p95 test**: context menu selection, media current time, network suppression on invalid duration, and audio fallback are evidenced.
 
+### #38 Reviewer Journey Happy/Sad Paths And Krug Pass
+
+- [ ] Marketing, feed, signup, local extension install, capture, publish, feed return, comment, follow/engage, and claim steps are documented as one reviewer journey.
+- [ ] The web app exposes the local unpacked-extension path because Chrome Web Store distribution is not part of the MVP.
+- [ ] Auth, extension install, wrong API URL, no selection, over-90 media, audio/R2, and claim-submission recovery states have clear copy and test evidence.
+- [ ] The final demo script follows the same happy/sad paths without requiring improvisation.
+
+Learning notes:
+
+- **Developer/user must understand**: the reviewer journey is itself a product surface, not a documentation footnote.
+- **Pitfall**: a live route or working endpoint can still fail the bounty if the user cannot discover and complete the job.
+- **p50 test**: reviewer can discover, install/use, publish, and return to the feed using one script.
+- **p95 test**: auth blockers, unpacked-extension constraints, invalid ranges, audio limitations, and claim behavior are understandable at the point of action.
+
 ## Remaining Blockers
 
 - **#24**: Google/X OAuth needs provider apps, secrets, token exchange, user/session persistence, and extension handoff proof.
 - **#26**: R2 is not enabled, audio storage is fallback-only, and owned-media 240p policy is undecided.
 - **#30/#23**: production extension p95 smoke evidence is not yet recorded.
+- **#38**: reviewer journey happy/sad paths and Krug pass are not yet merged into the product/docs.
 - **#28**: external submission should wait for these gates or explicitly disclose them.
