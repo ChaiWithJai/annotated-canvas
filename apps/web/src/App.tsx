@@ -44,7 +44,7 @@ function parseSeconds(value: string): number {
 export function App() {
   const [view, setView] = useState<View>(() => viewFromPath(window.location.pathname));
   const [claimTarget, setClaimTarget] = useState<AnnotationResource | null>(null);
-  const [claimReason, setClaimReason] = useState("I want this annotation reviewed for attribution and usage boundaries.");
+  const [claimReason, setClaimReason] = useState("Please review this annotation and its source usage.");
   const [claimStatus, setClaimStatus] = useState<string | null>(null);
   const [claimStatusId, setClaimStatusId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -74,7 +74,7 @@ export function App() {
 
   const viewTitle = useMemo(() => {
     if (view === "home") return "Annotated Canvas";
-    if (view === "feed") return "Following";
+    if (view === "feed") return "Public feed";
     if (view === "profile") return "Mira's Canvas";
     if (view === "signup") return "Sign up";
     if (view === "empty") return "No annotations";
@@ -187,7 +187,7 @@ export function App() {
         actions={
           <Button tone="secondary">
             <LogIn size={16} aria-hidden="true" />
-            Continue
+            Sign in
           </Button>
         }
       />
@@ -197,41 +197,41 @@ export function App() {
           <p className="eyebrow">Annotated Canvas</p>
           <h1>{viewTitle}</h1>
           <p>
-            Clip exact source moments, publish commentary, and preserve the original traffic path.
+            Publish a source-linked quote, clip, or comment without hiding the original page.
           </p>
           <dl>
             <div>
-              <dt>References</dt>
-              <dd>By source URL</dd>
+              <dt>Source</dt>
+              <dd>Always linked</dd>
             </div>
             <div>
               <dt>Claims</dt>
-              <dd>Notice workflow</dd>
+              <dd>Review request</dd>
             </div>
             <div>
-              <dt>Storage</dt>
-              <dd>Clip-by-reference</dd>
+              <dt>Clip limit</dt>
+              <dd>90 seconds max</dd>
             </div>
           </dl>
         </aside>
 
         {view === "home" || view === "signup" ? (
           <section className="marketing-view">
-            <p className="eyebrow">Source-linked commentary</p>
-            <h2>Annotate the exact moment, keep the source intact.</h2>
+            <p className="eyebrow">Source-linked annotations</p>
+            <h2>Save the exact moment. Keep the source one click away.</h2>
             <p>
-              Capture text selections and media timecodes, add commentary, and publish public
-              annotations that send readers back to the original source.
+              Capture a quote or short media range, add your take, and publish it with a link back
+              to the original page.
             </p>
             <div className="marketing-actions">
               <a
                 className="marketing-button marketing-button--primary"
                 href={`${API_BASE}/api/auth/google/start?return_to=/`}
               >
-                Sign up with Google
+                Sign in with Google
               </a>
               <a className="marketing-button" href={`${API_BASE}/api/auth/x/start?return_to=/`}>
-                Sign up with X
+                Sign in with X
               </a>
               <button type="button" onClick={() => navigate("feed")}>
                 View public feed
@@ -255,22 +255,18 @@ export function App() {
           <section className="feed-view" aria-label="Global feed">
             <div className="feed-toolbar">
               <div>
-                <p className="eyebrow">Recent public annotations</p>
-                <h2>Following feed</h2>
+                <p className="eyebrow">Latest annotations</p>
+                <h2>Public feed</h2>
               </div>
-              <Button tone="primary">
-                <Send size={16} aria-hidden="true" />
-                New annotation
-              </Button>
             </div>
             <form className="composer" onSubmit={submitComposer}>
               <div className="composer__header">
                 <div>
-                  <p className="eyebrow">URL capture</p>
-                  <h3>Publish from a source link</h3>
+                  <p className="eyebrow">Create</p>
+                  <h3>Create an annotation</h3>
                 </div>
                 <fieldset className="composer__mode">
-                  <legend>Clip type</legend>
+                  <legend>What are you saving?</legend>
                   <button
                     type="button"
                     className={composerMode === "text" ? "is-active" : ""}
@@ -283,7 +279,7 @@ export function App() {
                     className={composerMode === "video" ? "is-active" : ""}
                     onClick={() => setComposerMode("video")}
                   >
-                    Video/audio
+                    Time range
                   </button>
                 </fieldset>
               </div>
@@ -315,7 +311,7 @@ export function App() {
                 </div>
               )}
               <label>
-                Commentary
+                Your note
                 <textarea
                   value={composerCommentary}
                   onChange={(event) => setComposerCommentary(event.target.value)}
@@ -332,7 +328,7 @@ export function App() {
             {view === "empty" ? (
               <div className="empty-state">
                 <h2>No annotations yet.</h2>
-                <p>Start following curators or clip your first source-linked moment.</p>
+                <p>Create the first source-linked annotation above.</p>
               </div>
             ) : (
               <div className="feed-list">
@@ -353,7 +349,7 @@ export function App() {
           <article className="permalink-view">
             {view === "removed" ? (
               <div className="removed-state">
-                <p className="eyebrow">Public permalink</p>
+                <p className="eyebrow">Annotation page</p>
                 <h2>This annotation has been removed by the author or via moderation claim.</h2>
                 {featuredSource ? <SourcePill source={featuredSource} /> : null}
                 <button type="button" onClick={() => setClaimTarget(featured)}>
@@ -363,7 +359,7 @@ export function App() {
               </div>
             ) : (
               <>
-                <p className="eyebrow">Public permalink</p>
+                <p className="eyebrow">Annotation page</p>
                 <h2>
                   {featured.commentary.kind === "text" ? featured.commentary.text : "Audio commentary"}
                 </h2>
@@ -447,13 +443,13 @@ export function App() {
         ) : null}
 
         <aside className="rail rail--right" aria-label="System status">
-          <p className="eyebrow">MVP gates</p>
+          <p className="eyebrow">Trust checks</p>
           {[
-            "source_url enforced",
-            "90 second media cap",
-            "X/Google OAuth only",
-            "claim notice flow",
-            "idempotent publish"
+            "Original source is always linked",
+            "Clips stop at 90 seconds",
+            "Sign in with X or Google",
+            "Claims ask for human review",
+            "Retries do not duplicate posts"
           ].map((item) => (
             <div className="gate" key={item}>
               <Check size={15} aria-hidden="true" />
@@ -462,7 +458,7 @@ export function App() {
           ))}
           <div className="notify">
             <Bell size={18} aria-hidden="true" />
-            <p>Cloudflare services run behind the public REST contract.</p>
+            <p>Open the source from any card before you quote, comment, or file a claim.</p>
           </div>
         </aside>
       </main>
@@ -473,7 +469,7 @@ export function App() {
             <header>
               <div>
                 <p className="eyebrow">Rights notice</p>
-                <h2>File a claim</h2>
+                <h2>Ask for a review</h2>
               </div>
               <button
                 type="button"
@@ -487,8 +483,8 @@ export function App() {
               </button>
             </header>
             <p>
-              This opens a notice workflow for <strong>{claimTarget.id}</strong>. Annotated records the
-              claim and routes it for review; it does not decide fair use automatically.
+              Tell us what needs review. We record the request and keep the annotation visible until
+              a reviewer acts.
             </p>
             {clipSource(claimTarget.clip) ? <SourcePill source={clipSource(claimTarget.clip)!} /> : null}
             <label>
@@ -518,7 +514,7 @@ export function App() {
               }}
             >
               <Flag size={16} aria-hidden="true" />
-              Submit notice
+              Submit review request
             </Button>
             {claimStatus ? <p className="claim-status">{claimStatus}</p> : null}
             {claimStatusId ? (

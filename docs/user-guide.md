@@ -84,7 +84,7 @@ The extension side panel has four tabs:
 - `ANNOTATIONS`: placeholder for previously published annotations.
 - `SETTINGS`: placeholder for account and provider settings.
 
-The current side panel uses a demo source URL in the UI. It validates the source shape locally and simulates the publish state when `Publish to Canvas` is clicked. Use the API flow below when you need a local annotation record created through the backend.
+The current side panel reads the active tab when it can, falls back to the demo source when it cannot, and publishes through the local API when `Publish annotation` is clicked. Use the API flow below when you need to inspect the exact backend payload.
 
 When rebuilding the extension, return to `chrome://extensions` and click the reload icon on the Annotated Canvas card.
 
@@ -96,9 +96,9 @@ There are two MVP paths.
 
 1. Load the unpacked extension from `dist/extension`.
 2. Open the extension side panel.
-3. On `CONTEXT`, choose `Timecode` or `Text`.
+3. On `Capture`, choose `Time range` or `Selected text`.
 4. Add commentary.
-5. Click `Publish to Canvas`.
+5. Click `Publish annotation`.
 6. The button changes from `Publishing...` to `Published`.
 
 This verifies the local capture UI, but it does not currently persist the annotation through the API.
@@ -208,7 +208,7 @@ curl http://localhost:8787/api/annotations/ann_video_minimalism
    - `Creator`
    - `Other`
 4. Enter the reason.
-5. Click `Submit notice`.
+5. Click `Submit review request`.
 
 The current modal demonstrates the claim workflow in the browser. Use the API flow below when you need a local claim record.
 

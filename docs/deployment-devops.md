@@ -1,6 +1,6 @@
 # Deployment DevOps Plan
 
-This plan takes the Cloudflare MVP from local Wrangler development to production deployments through GitHub Actions. It assumes the public API Worker remains `annotated-canvas-api` and that the web and extension builds are verified in CI before any Worker deployment is allowed.
+This plan takes the Cloudflare MVP from local Wrangler development to production deployments through GitHub Actions. GitHub is the primary deployment control plane: Wrangler runs inside Actions for migrations and Worker deploys, while local Wrangler commands are for verification, resource bootstrap, and fallback operations.
 
 ## Production Target
 
@@ -15,7 +15,7 @@ This plan takes the Cloudflare MVP from local Wrangler development to production
 The workflow in `.github/workflows/ci.yml` has two jobs:
 
 1. `verify` runs on pull requests and pushes to `main`.
-2. `deploy-production` runs only after `verify` passes on a push to `main`.
+2. `deploy-production` runs only after `verify` passes on a push to `main`, or after a manual `workflow_dispatch` on `main` with `deploy_production=true`.
 
 Verification commands:
 
@@ -36,7 +36,7 @@ npm exec -- wrangler deploy --config apps/api/wrangler.production.jsonc
 
 Keep migrations in the deploy job only after the test/build gate. For schema changes, prefer expand-and-contract migrations: deploy additive D1 changes first, deploy compatible code second, and remove old columns or constraints in a later release after the old code path is gone.
 
-## Required GitHub Secrets
+## Required GitHub Configuration
 
 Set these in the GitHub `production` environment, not only at repository level:
 
@@ -44,6 +44,14 @@ Set these in the GitHub `production` environment, not only at repository level:
 | --- | --- |
 | `CLOUDFLARE_ACCOUNT_ID` | Account scope for Wrangler deploys and D1 migrations. |
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API token used by CI. |
+
+`npm run cf:setup:production -- --apply --github` creates or reuses this environment and writes these secrets through `gh`. Configure required reviewers for the environment in GitHub repo settings before enabling unattended production deploys.
+
+Set this as a repository-level variable because it controls whether the production deploy job is allowed to run:
+
+| Variable | Purpose |
+| --- | --- |
+| `CLOUDFLARE_DEPLOY_ENABLED` | Set to `true` only after production resource IDs are committed and the GitHub `production` environment contains valid Cloudflare secrets. |
 
 The Cloudflare API token should be narrowly scoped. Minimum practical permissions:
 
@@ -56,24 +64,27 @@ The Cloudflare API token should be narrowly scoped. Minimum practical permission
 - Queues: Edit
 - Durable Objects: Edit, when applying Durable Object migrations through Worker deploys
 
-Do not put application secrets in `vars` inside `wrangler.jsonc`. Use Wrangler secrets for sensitive values:
+Do not put application secrets in `vars` inside `wrangler.jsonc`. Use Worker secrets for sensitive values. With the GitHub-first path, run these with `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` exported, or perform the equivalent through an approved secret-management workflow:
 
 ```bash
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...
 npm exec -- wrangler secret put SESSION_SECRET --config apps/api/wrangler.production.jsonc
 npm exec -- wrangler secret put OAUTH_CLIENT_SECRET --config apps/api/wrangler.production.jsonc
 ```
 
 ## Required Cloudflare Resources
 
-Create production resources before enabling the `main` deploy job:
+Create production resources and wire GitHub before enabling the `main` deploy job:
 
 ```bash
-npm exec -- wrangler d1 create annotated_canvas
-npm exec -- wrangler kv namespace create SESSION_KV
-npm exec -- wrangler r2 bucket create annotated-canvas-media
-npm exec -- wrangler queues create annotated-canvas-jobs
-npm exec -- wrangler queues create annotated-canvas-dlq
+gh auth status
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...
+npm run cf:setup:production -- --apply --github
 ```
+
+Add `--pages` if this repo should create the Cloudflare Pages project from the bootstrap script. If Pages is already connected to GitHub in Cloudflare, keep that integration as the Pages deployment path and let GitHub Actions handle the Worker.
 
 Then update `apps/api/wrangler.production.jsonc` with the generated identifiers:
 
@@ -81,7 +92,7 @@ Then update `apps/api/wrangler.production.jsonc` with the generated identifiers:
 - `kv_namespaces[].id` for `SESSION_KV`
 - preview/staging IDs under `env.preview` or `env.staging` when those environments are added
 
-The local Wrangler file intentionally uses demo values. Production deploys use `apps/api/wrangler.production.jsonc`, which intentionally contains placeholder IDs until Cloudflare resources are created.
+The bootstrap script patches the D1 and KV identifiers automatically when it can resolve them from Wrangler output. The local Wrangler file intentionally uses demo values. Production deploys use `apps/api/wrangler.production.jsonc`, which intentionally contains placeholder IDs until Cloudflare resources are created.
 
 ## Local And Remote D1 Migrations
 
@@ -95,6 +106,8 @@ npm run cf:dev
 Remote production:
 
 ```bash
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...
 npm run cf:migrate:production
 ```
 
@@ -161,6 +174,8 @@ Recommended production-like staging:
 Code rollback:
 
 ```bash
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...
 npm exec -- wrangler rollback --config apps/api/wrangler.production.jsonc
 ```
 
@@ -221,7 +236,9 @@ Post-deploy smoke gate:
 ## Current Blockers Before First Production Deploy
 
 - `apps/api/wrangler.production.jsonc` needs production `database_id` and KV namespace `id` values.
-- Production Cloudflare resources must be created in the target account.
+- Production Cloudflare resources must be created in the target account and the generated IDs committed.
+- GitHub `production` environment secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` must be set.
+- Repository variable `CLOUDFLARE_DEPLOY_ENABLED` must be set to `true` after the production config is ready.
 - `APP_ORIGIN`, `SERVICE_MODE`, and `AUTH_MODE` have production-safe values in `apps/api/wrangler.production.jsonc`, but the final origin must be updated after the public web hostname is chosen.
 - Preview/staging environments are not yet configured in Wrangler.
 - Remote migration execution uses `apps/api/migrations/production`, so `0002_seed_demo.sql` is not part of production deployment.

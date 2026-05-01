@@ -1,6 +1,6 @@
-# Cloudflare CLI Setup
+# Cloudflare GitHub And CLI Setup
 
-This repo is prepared for Cloudflare-first local and remote development through Wrangler.
+This repo treats GitHub Actions as the primary production deployment control plane for Cloudflare. Wrangler is still the implementation CLI used by Actions, and it remains the local tool for validation, D1 migrations, resource bootstrap, and fallback deploys.
 
 ## Installed Tooling
 
@@ -9,6 +9,19 @@ This repo is prepared for Cloudflare-first local and remote development through 
 - `@cloudflare/vitest-pool-workers` reserved for Worker-runtime integration tests as the service split matures.
 
 ## Commands
+
+GitHub-first production setup:
+
+```bash
+gh auth status
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...
+npm run cf:setup:production -- --apply --github
+```
+
+Add `--pages` only when the Cloudflare Pages project should be created from this bootstrap script. If the Pages project is already connected to GitHub in Cloudflare, leave it out and keep the Worker deploy controlled by `.github/workflows/ci.yml`.
+
+Local verification and fallback commands:
 
 ```bash
 npm install
@@ -32,22 +45,11 @@ npm run cf:deploy:production
 - `JOBS`: feed fanout, claim notices, metadata refresh, and post-publish background jobs.
 - `ENGAGEMENT_COUNTERS`: per-annotation coordination where a D1 event log alone is not enough.
 
-## Production Bootstrap
+## GitHub-First Production Bootstrap
 
-`npm run cf:setup:production` runs `scripts/cloudflare/setup-production.mjs`. By default it performs a dry run and verifies Wrangler authentication. Add `-- --apply` to create or reuse Cloudflare resources and patch `apps/api/wrangler.production.jsonc` with generated D1/KV IDs.
+Cloudflare production deploys should run from GitHub. GitHub Actions is the control plane for deploying `main`; Wrangler stays in the repo for local verification, resource discovery, migrations, and fallback deploys.
 
-```bash
-npm exec -- wrangler login
-npm run cf:setup:production -- --apply --pages
-```
-
-To deploy after resources are created:
-
-```bash
-npm run cf:deploy:production
-```
-
-To wire GitHub Actions from the CLI, export a scoped Cloudflare account ID/token first, then let the script set repository secrets and enable the deploy gate:
+To wire the GitHub production environment and enable the deploy gate from the CLI, export a scoped Cloudflare account ID/token first:
 
 ```bash
 export CLOUDFLARE_ACCOUNT_ID=...
@@ -55,7 +57,27 @@ export CLOUDFLARE_API_TOKEN=...
 npm run cf:setup:production -- --apply --github
 ```
 
-The script intentionally refuses to proceed until `wrangler whoami` succeeds. This prevents partially configured production files from being committed with placeholder or guessed resource IDs.
+When `--github` is present, the script creates or reuses the GitHub `production` environment, stores Cloudflare credentials there, and enables the repository-level `CLOUDFLARE_DEPLOY_ENABLED` gate. Use `CLOUDFLARE_GITHUB_ENVIRONMENT=...` to target a different GitHub environment. Configure required reviewers for that environment in GitHub repo settings before enabling unattended production deploys.
+
+Resource creation and production config patching still need Cloudflare API access through Wrangler. Use this when the target account is available from the CLI:
+
+```bash
+npm run cf:setup:production -- --apply --resources --pages
+```
+
+Production deploys should normally happen by pushing or merging to `main` after the production config IDs, GitHub environment secrets, and deploy variable are present. Local deploy remains a fallback:
+
+```bash
+npm run cf:deploy:production
+```
+
+Local OAuth is optional and mainly useful when an engineer wants an interactive fallback session:
+
+```bash
+npm exec -- wrangler login
+```
+
+The script does not require local Wrangler auth when it is only wiring GitHub secrets with `--github`. It does require Wrangler auth or token-based access when creating Cloudflare resources, applying migrations, patching production IDs, or doing a fallback local deploy.
 
 ## Service Split Rule
 

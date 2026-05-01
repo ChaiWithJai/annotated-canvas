@@ -94,6 +94,12 @@ a {
   white-space: nowrap;
 }
 
+.source-pill strong {
+  color: var(--ac-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .source-pill:hover {
   color: var(--ac-text);
   border-color: var(--ac-border-strong);

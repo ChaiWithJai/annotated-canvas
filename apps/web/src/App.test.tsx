@@ -12,7 +12,7 @@ describe("Annotated web shell", () => {
   it("renders the p50 feed with source attribution visible", () => {
     renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Following feed" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Public feed" })).toBeInTheDocument();
     expect(screen.getAllByText("youtube.com")[0]).toBeInTheDocument();
     expect(screen.getAllByText("File a claim")[0]).toBeInTheDocument();
   });
@@ -24,7 +24,8 @@ describe("Annotated web shell", () => {
     await user.click(screen.getAllByText("File a claim")[0]);
 
     expect(screen.getByRole("dialog", { name: "File a claim" })).toBeInTheDocument();
-    expect(screen.getByText(/does not decide fair use automatically/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ask for a review" })).toBeInTheDocument();
+    expect(screen.getByText(/keep the annotation visible/i)).toBeInTheDocument();
   });
 
   it("renders p95 empty feed and removed permalink states", () => {
@@ -49,17 +50,17 @@ describe("Annotated web shell", () => {
   it("renders the marketing signup view with feed preview", () => {
     renderAt("/home");
 
-    expect(screen.getByRole("heading", { name: /annotate the exact moment/i })).toBeInTheDocument();
-    expect(screen.getByText("Sign up with Google")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /save the exact moment/i })).toBeInTheDocument();
+    expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
     expect(screen.getByText("View public feed")).toBeInTheDocument();
   });
 
   it("renders the bounty URL capture composer on the feed", () => {
     renderAt("/");
 
-    expect(screen.getByRole("heading", { name: "Publish from a source link" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Create an annotation" })).toBeInTheDocument();
     expect(screen.getByLabelText("Source URL")).toBeInTheDocument();
-    expect(screen.getByLabelText("Commentary")).toBeInTheDocument();
+    expect(screen.getByLabelText("Your note")).toBeInTheDocument();
   });
 
   it("renders comments on the permalink page", () => {

@@ -11,6 +11,8 @@ const shouldApply = args.has("--apply");
 const shouldDeploy = args.has("--deploy");
 const shouldConfigureGithub = args.has("--github");
 const shouldCreatePages = args.has("--pages");
+const shouldProvisionResources = args.has("--resources") || (!shouldConfigureGithub && shouldApply);
+const githubEnvironment = process.env.CLOUDFLARE_GITHUB_ENVIRONMENT ?? "production";
 
 const names = {
   d1: "annotated_canvas",
@@ -26,8 +28,8 @@ function log(message) {
 }
 
 function run(command, commandArgs, options = {}) {
-  const { allowFailure = false, mutate = false, input } = options;
-  log(`$ ${command} ${commandArgs.join(" ")}`);
+  const { allowFailure = false, mutate = false, input, redactedArgs } = options;
+  log(`$ ${command} ${(redactedArgs ?? commandArgs).join(" ")}`);
   if (mutate && !shouldApply) return "";
 
   const result = spawnSync(command, commandArgs, {
@@ -86,7 +88,9 @@ function currentConfigIds() {
 function assertAuthenticated() {
   const output = wrangler(["whoami"], { allowFailure: true });
   if (output.includes("not authenticated") || output.includes("Please run `wrangler login`")) {
-    throw new Error("Wrangler is not authenticated. Run: npm exec -- wrangler login");
+    throw new Error(
+      "Wrangler is not authenticated. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN for token-based setup, or run: npm exec -- wrangler login"
+    );
   }
 }
 
@@ -138,11 +142,30 @@ function patchConfig(d1Id, kvId) {
 function configureGithub() {
   if (!shouldConfigureGithub) return;
   if (!process.env.CLOUDFLARE_ACCOUNT_ID || !process.env.CLOUDFLARE_API_TOKEN) {
-    throw new Error("Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in the shell before --github.");
+    if (shouldApply) {
+      throw new Error("Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in the shell before --github.");
+    }
+    log("GitHub wiring dry run: set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN before using --apply --github.");
+    return;
   }
 
-  gh(["secret", "set", "CLOUDFLARE_ACCOUNT_ID", "--body", process.env.CLOUDFLARE_ACCOUNT_ID], { mutate: true });
-  gh(["secret", "set", "CLOUDFLARE_API_TOKEN", "--body", process.env.CLOUDFLARE_API_TOKEN], { mutate: true });
+  gh(["api", "--method", "PUT", `repos/{owner}/{repo}/environments/${githubEnvironment}`], { mutate: true });
+  gh(
+    ["secret", "set", "CLOUDFLARE_ACCOUNT_ID", "--env", githubEnvironment, "--body-file", "-"],
+    {
+      mutate: true,
+      input: process.env.CLOUDFLARE_ACCOUNT_ID,
+      redactedArgs: ["secret", "set", "CLOUDFLARE_ACCOUNT_ID", "--env", githubEnvironment, "--body-file", "-"]
+    }
+  );
+  gh(
+    ["secret", "set", "CLOUDFLARE_API_TOKEN", "--env", githubEnvironment, "--body-file", "-"],
+    {
+      mutate: true,
+      input: process.env.CLOUDFLARE_API_TOKEN,
+      redactedArgs: ["secret", "set", "CLOUDFLARE_API_TOKEN", "--env", githubEnvironment, "--body-file", "-"]
+    }
+  );
   gh(["variable", "set", "CLOUDFLARE_DEPLOY_ENABLED", "--body", "true"], { mutate: true });
 }
 
@@ -163,18 +186,28 @@ function main() {
   log(`- R2: ${names.r2}`);
   log(`- Queues: ${names.queue}, ${names.dlq}`);
   log(`- Pages project: ${names.pages}`);
+  if (shouldConfigureGithub) log(`- GitHub deployment environment: ${githubEnvironment}`);
   log(`Current config IDs: ${JSON.stringify(currentConfigIds())}`);
+
+  if (shouldConfigureGithub) {
+    configureGithub();
+    if (!shouldProvisionResources && !shouldCreatePages && !shouldDeploy) {
+      log("GitHub deployment wiring complete. No local Wrangler auth needed for this step.");
+      return;
+    }
+  }
 
   assertAuthenticated();
   if (!shouldApply) {
     log("Dry run complete after auth check. Re-run with --apply to create resources and patch production config.");
     return;
   }
-  const d1Id = ensureD1();
-  const kvId = ensureKv();
-  ensureBestEffortResources();
-  patchConfig(d1Id, kvId);
-  configureGithub();
+  if (shouldProvisionResources || shouldCreatePages || shouldDeploy) {
+    const d1Id = ensureD1();
+    const kvId = ensureKv();
+    ensureBestEffortResources();
+    patchConfig(d1Id, kvId);
+  }
   deploy();
 
   log("Cloudflare bootstrap complete.");

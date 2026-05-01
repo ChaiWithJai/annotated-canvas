@@ -12,6 +12,12 @@ import {
 type CaptureMode = "context" | "drafts" | "annotations" | "settings";
 
 const fallbackUrl = "https://www.youtube.com/watch?v=annotated-demo&t=263s";
+const sidePanelTabs = [
+  { id: "context", label: "Capture", Icon: Scissors },
+  { id: "drafts", label: "Drafts", Icon: FileText },
+  { id: "annotations", label: "Published", Icon: Layers },
+  { id: "settings", label: "Settings", Icon: Settings }
+] satisfies Array<{ id: CaptureMode; label: string; Icon: typeof Scissors }>;
 
 export function SidePanel() {
   const [mode, setMode] = useState<CaptureMode>("context");
@@ -141,27 +147,22 @@ export function SidePanel() {
           AC
         </div>
         <div>
-          <h1>AnnotatedCanvas</h1>
-          <p>Extension</p>
+          <h1>Annotated Canvas</h1>
+          <p>Capture from this tab</p>
         </div>
       </header>
 
       <nav className="sidepanel-tabs" aria-label="Side panel">
-        {[
-          ["context", Scissors],
-          ["drafts", FileText],
-          ["annotations", Layers],
-          ["settings", Settings]
-        ].map(([tab, Icon]) => (
+        {sidePanelTabs.map(({ id, label, Icon }) => (
           <button
             type="button"
-            key={tab as string}
-            className={mode === tab ? "is-active" : ""}
-            onClick={() => setMode(tab as CaptureMode)}
-            title={String(tab)}
+            key={id}
+            className={mode === id ? "is-active" : ""}
+            onClick={() => setMode(id)}
+            title={label}
           >
             <Icon size={18} aria-hidden="true" />
-            <span>{String(tab).toUpperCase()}</span>
+            <span>{label}</span>
           </button>
         ))}
       </nav>
@@ -171,14 +172,14 @@ export function SidePanel() {
           <SourcePill source={source} />
 
           <fieldset className="segmented">
-            <legend>Capture type</legend>
+            <legend>What are you saving?</legend>
             <button
               type="button"
               className={captureKind === "video" ? "is-active" : ""}
               onClick={() => setCaptureKind("video")}
             >
               <Clock size={15} aria-hidden="true" />
-              Timecode
+              Time range
             </button>
             <button
               type="button"
@@ -186,19 +187,19 @@ export function SidePanel() {
               onClick={() => setCaptureKind("text")}
             >
               <FileText size={15} aria-hidden="true" />
-              Text
+              Selected text
             </button>
           </fieldset>
 
           {captureKind === "video" ? (
             <div className="timecode-grid">
               <label>
-                IN
+                Start
                 <input value={startTime} onChange={(event) => setStartTime(event.target.value)} inputMode="numeric" />
               </label>
               <span aria-hidden="true">-</span>
               <label>
-                OUT
+                End
                 <input value={endTime} onChange={(event) => setEndTime(event.target.value)} inputMode="numeric" />
               </label>
             </div>
@@ -210,9 +211,9 @@ export function SidePanel() {
           )}
 
           <label className="commentary-field">
-            <span>Commentary</span>
+            <span>Your note</span>
             <textarea
-              placeholder="Add your perspective..."
+              placeholder="Add your take..."
               value={commentary}
               onChange={(event) => setCommentary(event.target.value)}
             />
@@ -224,21 +225,21 @@ export function SidePanel() {
               onClick={toggleRecording}
             >
               {recording ? <Square size={15} aria-hidden="true" /> : <Mic size={15} aria-hidden="true" />}
-              {recording ? "Stop recording" : audioBlob ? "Re-record audio" : "Record audio"}
+              {recording ? "Stop recording" : audioBlob ? "Record again" : "Record voice note"}
             </button>
-            {audioBlob ? <span>{Math.ceil(audioBlob.size / 1024)} KB ready</span> : null}
+            {audioBlob ? <span>Voice note ready</span> : null}
           </div>
         </section>
       ) : (
         <section className="empty-pane">
-          <p>{mode === "settings" ? "Connect account sync and provider settings." : "No saved items yet."}</p>
+          <p>{mode === "settings" ? "Sign in to sync captures and publish from this browser." : "No saved items yet."}</p>
         </section>
       )}
 
       <footer className="sidepanel-footer">
         {error ? <p className="sidepanel-error">{error}</p> : null}
         <div className="sync-row">
-          <span>Connect accounts for sync:</span>
+          <span>Signed out</span>
           <UserCircle size={16} aria-hidden="true" />
         </div>
         <Button tone="primary" onClick={publish} disabled={status === "publishing"}>
@@ -247,7 +248,7 @@ export function SidePanel() {
             ? "Publishing..."
             : status === "published"
               ? "Published"
-              : "Publish to Canvas"}
+              : "Publish annotation"}
         </Button>
       </footer>
     </main>

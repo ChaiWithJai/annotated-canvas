@@ -50,8 +50,8 @@ Above the fold:
 - Product name: `Annotated Canvas`.
 - Headline: `Annotate the exact moment, keep the source intact.`
 - Supporting copy: `Capture text selections and media timecodes, add commentary, and publish public annotations that send readers back to the original source.`
-- Primary CTA: `Sign up with Google`.
-- Secondary CTA: `Sign up with X`.
+- Primary CTA: `Sign in with Google`.
+- Secondary CTA: `Sign in with X`.
 - Tertiary link: `View public feed`.
 - Trust note: `Every public annotation keeps a source URL and includes a claim workflow.`
 
@@ -156,8 +156,8 @@ Purpose: convert visitors into authenticated users or waitlist entries.
 
 Primary actions:
 
-- `Continue with Google`.
-- `Continue with X`.
+- `Sign in with Google`.
+- `Sign in with X`.
 
 Secondary action:
 

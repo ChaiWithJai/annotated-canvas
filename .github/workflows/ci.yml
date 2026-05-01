@@ -5,6 +5,13 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      deploy_production:
+        description: Run the production deploy job after verification on main.
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -46,9 +53,12 @@ jobs:
     name: Deploy production Worker
     needs: verify
     runs-on: ubuntu-latest
-    # Set repository/environment variable CLOUDFLARE_DEPLOY_ENABLED=true after
-    # production Cloudflare resource IDs and GitHub secrets are configured.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.CLOUDFLARE_DEPLOY_ENABLED == 'true'
+    # CLOUDFLARE_DEPLOY_ENABLED is a repository-level deploy gate. Production
+    # credentials remain in the GitHub production environment.
+    if: >-
+      vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy_production))
     environment:
       name: production
       url: ${{ steps.deploy.outputs.deployment-url }}

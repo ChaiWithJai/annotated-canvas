@@ -30,10 +30,18 @@ export function Button({
   );
 }
 
-export function SourcePill({ source }: { source: SourceRef }) {
+export function SourcePill({ source, label = "Original source" }: { source: SourceRef; label?: string }) {
   return (
-    <a className="source-pill" href={source.source_url} target="_blank" rel="noreferrer">
+    <a
+      className="source-pill"
+      href={source.source_url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`${label}: ${source.title}`}
+      title={`${label}: ${source.title}`}
+    >
       {source.favicon_url ? <img alt="" src={source.favicon_url} /> : <ExternalLink size={13} />}
+      <strong>{label}</strong>
       <span>{source.source_domain}</span>
       <ExternalLink size={12} aria-hidden="true" />
     </a>
@@ -71,7 +79,7 @@ export function ClipReference({ clip }: { clip: ClipRef }) {
           <div className="clip-reference__timecodes">
             <span>IN {formatTimecode(clip.media.start_seconds)}</span>
             <span>OUT {formatTimecode(clip.media.end_seconds)}</span>
-            <span>{clip.media.duration_seconds}s ref</span>
+            <span>{clip.media.duration_seconds}s clip</span>
           </div>
         </div>
       ) : null}
@@ -112,13 +120,13 @@ export function AnnotationCard({
       <p className="annotation-card__commentary">{commentary}</p>
 
       <footer className="annotation-card__footer">
-        <button type="button" onClick={() => onEngage?.(annotation, "like")}>
-          <Heart size={15} aria-hidden="true" /> {annotation.engagement.likes}
-        </button>
-        <button type="button" onClick={() => onEngage?.(annotation, "repost")}>
+          <button type="button" onClick={() => onEngage?.(annotation, "like")} aria-label="Like annotation">
+            <Heart size={15} aria-hidden="true" /> {annotation.engagement.likes}
+          </button>
+        <button type="button" onClick={() => onEngage?.(annotation, "repost")} aria-label="Repost annotation">
           <Repeat2 size={15} aria-hidden="true" /> {annotation.engagement.reposts}
         </button>
-        <button type="button" onClick={() => onEngage?.(annotation, "discuss")}>
+        <button type="button" onClick={() => onEngage?.(annotation, "discuss")} aria-label="Comment on annotation">
           <MessageCircle size={15} aria-hidden="true" /> {annotation.engagement.discussions}
         </button>
         {onClaim ? (
@@ -144,7 +152,7 @@ export function ShellHeader({
   return (
     <header className="shell-header">
       <button type="button" className="shell-header__brand" onClick={() => onNavigate("feed")}>
-        Annotated
+        Annotated Canvas
       </button>
       <nav aria-label="Primary">
         {(["feed", "profile", "annotation"] as const).map((view) => (
@@ -154,7 +162,7 @@ export function ShellHeader({
             className={active === view ? "is-active" : ""}
             onClick={() => onNavigate(view)}
           >
-            {view === "annotation" ? "Permalink" : view[0].toUpperCase() + view.slice(1)}
+            {view === "annotation" ? "Annotation" : view[0].toUpperCase() + view.slice(1)}
           </button>
         ))}
       </nav>
