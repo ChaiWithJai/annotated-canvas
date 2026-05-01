@@ -214,14 +214,15 @@ describe("API router regression coverage", () => {
     expect((await body(token)).token_type).toBe("Bearer");
   });
 
-  it("fails closed for oauth start when credentials or session KV are missing", async () => {
+  it("fails closed for oauth start when credentials, D1, or session KV are missing", async () => {
     const missingSecret = await handleRequest(
       request("/api/auth/google/start?return_to=/"),
       {
         ...env,
         AUTH_MODE: "oauth",
         GOOGLE_CLIENT_ID: "google-client",
-        SESSION_KV: createSessionKv()
+        SESSION_KV: createSessionKv(),
+        DB: createAuthDb()
       },
       { repository, jobs }
     );
@@ -232,13 +233,32 @@ describe("API router regression coverage", () => {
     expect(missingSecretPayload.error.details.missing).toContain("GOOGLE_CLIENT_SECRET");
     expect(missingSecretPayload.authorization_url).toBeUndefined();
 
+    const missingDb = await handleRequest(
+      request("/api/auth/google/start?return_to=/"),
+      {
+        ...env,
+        AUTH_MODE: "oauth",
+        GOOGLE_CLIENT_ID: "google-client",
+        GOOGLE_CLIENT_SECRET: "google-secret",
+        SESSION_KV: createSessionKv()
+      },
+      { repository, jobs }
+    );
+    const missingDbPayload = await body(missingDb);
+
+    expect(missingDb.status).toBe(503);
+    expect(missingDbPayload.error.code).toBe("auth_not_configured");
+    expect(missingDbPayload.error.details.missing).toContain("DB");
+    expect(missingDbPayload.authorization_url).toBeUndefined();
+
     const missingKv = await handleRequest(
       request("/api/auth/x/start?return_to=/"),
       {
         ...env,
         AUTH_MODE: "oauth",
         X_CLIENT_ID: "x-client",
-        X_CLIENT_SECRET: "x-secret"
+        X_CLIENT_SECRET: "x-secret",
+        DB: createAuthDb()
       },
       { repository, jobs }
     );
@@ -248,6 +268,19 @@ describe("API router regression coverage", () => {
     expect(missingKvPayload.error.code).toBe("auth_not_configured");
     expect(missingKvPayload.error.details.missing).toContain("SESSION_KV");
     expect(missingKvPayload.authorization_url).toBeUndefined();
+  });
+
+  it("rejects unsupported auth providers before start or callback handling", async () => {
+    const start = await handleRequest(request("/api/auth/mastodon/start?return_to=/"), env, { repository, jobs });
+    const callback = await handleRequest(request("/api/auth/mastodon/callback?state=state_1&code=demo"), env, {
+      repository,
+      jobs
+    });
+
+    expect(start.status).toBe(400);
+    expect((await body(start)).error.code).toBe("unsupported_auth_provider");
+    expect(callback.status).toBe(400);
+    expect((await body(callback)).error.code).toBe("unsupported_auth_provider");
   });
 
   it("validates state, exchanges provider code, persists local user and session, and rejects replay", async () => {
@@ -340,6 +373,76 @@ describe("API router regression coverage", () => {
     );
     expect(replayedCallback.status).toBe(400);
     expect((await body(replayedCallback)).error.code).toBe("invalid_oauth_state");
+  });
+
+  it("serves p50 X oauth callback and ties extension handoff to the web session", async () => {
+    const sessionKv = createSessionKv();
+    const db = createAuthDb();
+    const oauth = createOAuthClient({
+      provider: "x",
+      provider_account_id: "x-user-456",
+      handle: "annotator_x",
+      display_name: "Annotator X",
+      avatar_url: "https://profiles.example/x.png"
+    });
+    const oauthEnv: Env = {
+      ...env,
+      AUTH_MODE: "oauth",
+      X_CLIENT_ID: "x-client",
+      X_CLIENT_SECRET: "x-secret",
+      SESSION_KV: sessionKv,
+      DB: db
+    };
+
+    const start = await body(
+      await handleRequest(request("/api/auth/x/start?return_to=/extension"), oauthEnv, { repository, jobs })
+    );
+    expect(start.authorization_url).toContain("twitter.com");
+
+    const callback = await handleRequest(request(`/api/auth/x/callback?state=${start.state}&code=x-code`), oauthEnv, {
+      repository,
+      jobs,
+      oauth
+    });
+    expect(callback.status).toBe(302);
+    expect(callback.headers.get("Location")).toBe("http://localhost:5173/extension");
+    expect(db.users.size).toBe(1);
+    expect(db.oauthAccounts.size).toBe(1);
+    expect(db.sessions.size).toBe(1);
+
+    const sessionId = callback.headers.get("Set-Cookie")?.match(/annotated_session=([^;]+)/)?.[1];
+    expect(sessionId).toBeTruthy();
+    const token = await handleRequest(
+      request("/api/auth/extension-token", {
+        method: "POST",
+        headers: {
+          Cookie: `annotated_session=${sessionId}`
+        }
+      }),
+      oauthEnv,
+      { repository, jobs }
+    );
+    expect(token.status).toBe(200);
+    const tokenPayload = await body(token);
+    const storedToken = JSON.parse(sessionKv.store.get(`extension_token:${tokenPayload.token}`) ?? "{}");
+    expect(storedToken).toMatchObject({
+      session_id: sessionId,
+      provider: "x",
+      handle: "annotator_x",
+      display_name: "Annotator X"
+    });
+
+    const exchangeCall = oauth.calls.find(
+      (call): call is { type: "exchange"; input: any } => call.type === "exchange"
+    );
+    expect(exchangeCall?.input).toMatchObject({
+      provider: "x",
+      code: "x-code",
+      client_id: "x-client",
+      client_secret: "x-secret"
+    });
+    expect(exchangeCall?.input.redirect_uri).toBe("https://api.annotated.test/api/auth/x/callback");
+    expect(exchangeCall?.input.code_verifier).toEqual(expect.any(String));
   });
 
   it("fails oauth callback closed for missing config without consuming state", async () => {
@@ -459,6 +562,11 @@ describe("API router regression coverage", () => {
     const tokenPayload = await body(token);
     expect(tokenPayload.token_type).toBe("Bearer");
     expect(sessionKv.store.has(`extension_token:${tokenPayload.token}`)).toBe(true);
+    expect(JSON.parse(sessionKv.store.get(`extension_token:${tokenPayload.token}`) ?? "{}")).toMatchObject({
+      user_id: "usr_oauth",
+      provider: "google",
+      session_id: "ses_valid"
+    });
   });
 
   it("deletes the session on logout when session KV is available", async () => {
