@@ -13,6 +13,15 @@ Status buckets used below:
 - **Blocked by human credentials/secrets**: external account setup or secrets are required before final proof.
 - **Not yet implemented**: product/code/policy work remains.
 
+## Current Submission Status
+
+- **Working deployed MVP**: GitHub Actions deploy-from-main is proven by run `25212955639`; the public Pages and Worker URLs are live; the feed, profile, permalink, source-link, comment/claim intake, text commentary, and API-side 90-second validation have production evidence.
+- **Approved API-level smoke**: `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` is the current public smoke annotation. It proves the production API and web permalink can serve a source-linked 60-second annotation, not that a real Chrome extension captured selected text or media time from a page.
+- **Extension p95 still open**: #30/#23 still need browser evidence for production API-base persistence, exact selected text, exact real media `currentTime`, >90-second no-network rejection, and audio/microphone behavior.
+- **Auth blocker**: #24 still needs real Google/X apps, secrets, token exchange, user/session creation, and extension handoff. Production correctly fails closed with `auth_not_configured` today.
+- **Audio/240p blocker**: #26 still needs durable recorded-audio storage plus an explicit owned-media 240p/sub-480p policy. Third-party media remains source-linked by reference.
+- **Final submission requirement**: the human submitter must either wait for #23/#24/#26/#30 or copy the known-limitations language below into the external `annotated.lovable.app` submission.
+
 ## Submission Links
 
 Fill these in immediately before posting to `https://annotated.lovable.app`.
@@ -22,7 +31,7 @@ Fill these in immediately before posting to `https://annotated.lovable.app`.
 | Public web URL | `https://annotated-canvas.pages.dev` |
 | Public API health URL | `https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` |
 | Public feed URL | `https://annotated-canvas.pages.dev/` |
-| Public annotation permalink | `https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` |
+| Public annotation permalink | `https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` |
 | Public profile URL | `https://annotated-canvas.pages.dev/u/mira` |
 | Source repository | `https://github.com/ChaiWithJai/annotated-canvas` |
 | Local web URL | `http://127.0.0.1:5173` |
@@ -34,7 +43,7 @@ Public demo routes:
 
 - Feed: `https://annotated-canvas.pages.dev/`
 - Profile: `https://annotated-canvas.pages.dev/u/mira`
-- Annotation permalink: `https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0`
+- Annotation permalink: `https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`
 - Removed annotation state: `https://annotated-canvas.pages.dev/a/removed`
 
 Local demo routes:
@@ -87,15 +96,15 @@ Expected service name: `annotated-canvas-api`.
 
 Target length: 8-10 minutes.
 
-1. Open the public web URL or local feed at `http://127.0.0.1:5173/`.
+1. Open the public web URL at `https://annotated-canvas.pages.dev/`.
 2. Show the public feed, source-domain labels, engagement counts, and `File a claim` button.
-3. Open `http://127.0.0.1:5173/u/mira` and show the creator profile and annotation list.
-4. Open `http://127.0.0.1:5173/a/ann_video_minimalism` and show the permalink, original source link, commentary, and clip metadata.
-5. Show local demo auth start URLs for Google and X:
+3. Open `https://annotated-canvas.pages.dev/u/mira` and show the creator profile and annotation list.
+4. Open `https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` and show the permalink, original source link, commentary, and 60-second clip metadata.
+5. Show production auth failing closed until provider secrets exist:
 
    ```bash
-   curl "http://localhost:8787/api/auth/google/start?return_to=http://127.0.0.1:5173/"
-   curl "http://localhost:8787/api/auth/x/start?return_to=http://127.0.0.1:5173/"
+   curl "https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/google/start?return_to=https://annotated-canvas.pages.dev/"
+   curl "https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/x/start?return_to=https://annotated-canvas.pages.dev/"
    ```
 
 6. Load the unpacked Chrome extension from `dist/extension`.
@@ -162,10 +171,10 @@ curl -X POST http://localhost:8787/api/claims \
 
 | Bounty item | Reviewer evidence | Current status |
 | --- | --- | --- |
-| Sidebar Chrome extension | MV3 side panel loaded from `dist/extension`; side panel opens on source pages. | **Working now** locally; production p50/p95 proof remains #30/#23. |
-| Highlight and clip text/audio/video from any website | Current-tab context, selected text, and media time-range UI/API payloads. | **Deployed but limited**; exact selected-text and real media-time proof remain #23/#30. |
+| Sidebar Chrome extension | MV3 side panel loaded from `dist/extension`; side panel opens on source pages. | **Working now** locally; production p50/p95 browser proof remains #30/#23. |
+| Highlight and clip text/audio/video from any website | Current-tab context, selected text, media time-range UI/API payloads, and approved production API-level smoke. | **Deployed but limited**; exact selected-text and real media-time browser proof remain #23/#30. |
 | Add commentary and annotations | Text commentary publish path and API contract. | **Deployed but limited**; recorded audio is fallback-only until #26. |
-| Landing page links back to original source | Annotation permalink includes source metadata and original source link. | **Working now** with public permalink smoke. |
+| Landing page links back to original source | Approved annotation permalink includes source metadata and original source link. | **Working now** with public permalink smoke `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`. |
 | Public social feed | Feed route and API feed path. | **Working now** with public Worker and Pages smoke. |
 | Users can follow and engage | Feed/profile engagement, follow route, comments, and counts. | **Working now**; include fresh follow/comment proof in final demo. |
 | Account via X or Google | Sign-in buttons call the API and production fails closed when secrets are absent. | **Blocked by human credentials/secrets**; real provider exchange remains #24. |
@@ -177,16 +186,16 @@ curl -X POST http://localhost:8787/api/claims \
 | Users can leave comments | Comment resources and claim/feed docs reflect local completion. | **Working now**; public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. |
 | File a claim button | Claim button/modal and `POST /api/claims` notice intake. | **Working now**; public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. |
 | All content links to original source | `source_url` required for third-party clips. | **Working now** for third-party contracts/API. |
-| Submit to annotated.lovable.app | Packet, URLs, demo script, and checklist. | **Deployed but limited**; external submission needs final disclosure or completion of open gates. |
+| Submit to annotated.lovable.app | Packet, URLs, demo script, approved smoke annotation, and checklist. | **Deployed but limited**; external submission needs final disclosure or completion of open gates. |
 
 ## Open-Issue Acceptance Notes
 
-These notes are the reviewer handoff for the seven open tickets. The longer form lives in `docs/bounty-gap-audit.md`.
+These notes are the reviewer handoff for the six open tickets plus the closed Cloudflare dependency. The longer form lives in `docs/bounty-gap-audit.md`.
 
 | Issue | Close only when | Learning note | p50 evidence | p95 evidence |
 | --- | --- | --- | --- | --- |
 | #21 Bounty readiness | The status buckets are current and every gap is closed or explicitly disclosed. | A live MVP is not a complete bounty claim. | Public URLs and demo script work. | No bounty-critical limitation is hidden. |
-| #22 Cloudflare deployment | GitHub Actions deploy-from-main runs and public smoke passes from that commit. | Local Wrangler proves capability; CI deploy proves repeatability. | Local-deployed web/API smoke works. | GitHub-deployed smoke works after secrets are installed. |
+| Closed #22 Cloudflare deployment | Closed after GitHub Actions deploy-from-main and public smoke passed from run `25212955639`. | Local Wrangler proved capability; CI deploy now proves repeatability. | Public web/API smoke works. | GitHub-deployed smoke passed from head SHA `2963f02d37bff4d862e00027f7774688ff9f5e26`. |
 | #23 Capture journey | Web URL/current-page, selected text, and media time payloads reconcile with stored annotations. | Functional fields are not proof unless payloads match user intent. | One normal annotation publishes. | Exact quote/timecode/source integrity are proven. |
 | #24 OAuth | Google/X provider exchange, sessions, and extension handoff work with real credentials. | Honest not-configured failure is safer than fake account creation. | Signed-out and provider-start behavior is visible. | Invalid/replayed state, logout, and anonymous extension-token rejection are tested. |
 | #26 Audio/240p | Recorded audio persists and owned-media 240p/sub-480p policy is implemented or explicitly excluded. | Third-party references and owned media processing are different rights surfaces. | Text commentary and audio intent behavior are clear. | Stored audio, upload validation, and owned-video rendition policy are enforceable. |
@@ -198,7 +207,6 @@ These notes are the reviewer handoff for the seven open tickets. The longer form
 Open issue snapshot for `ChaiWithJai/annotated-canvas`:
 
 - #21 `Epic: Bounty gap audit and submission readiness`
-- #22 `Epic: Cloudflare CLI production setup and deployment`
 - #23 `Epic: Complete extension and web capture journey`
 - #24 `Epic: Real X/Google auth and extension handoff`
 - #26 `Epic: Audio commentary and 240p media policy`
@@ -207,6 +215,7 @@ Open issue snapshot for `ChaiWithJai/annotated-canvas`:
 
 Recently completed issue evidence relevant to the packet:
 
+- #22 `Epic: Cloudflare CLI production setup and deployment`
 - #25 `Epic: Public feed, comments, follows, and engagement parity`
 - #27 `Task: Harden claim filing into a reviewable notice workflow`
 
@@ -229,17 +238,20 @@ Production extension p50/p95 proof still to record:
 
 Production smoke evidence recorded on May 1, 2026:
 
-- `GET https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` returned `200`.
-- `GET https://annotated-canvas.pages.dev/`, `/u/mira`, `/a/removed`, and `/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` returned `200`.
-- `POST /api/annotations` created `ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0`.
-- `GET /api/annotations/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` returns canonical `permalink_url: https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0`.
-- `POST /api/annotations/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0/comments` created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`.
-- `POST /api/claims` created `claim_36899790-f89f-4add-9744-046b5b46c3f3`, and `GET /api/annotations/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` still returned `200`.
-- `POST /api/uploads/audio-commentary` returned `status: intent-created`, confirming the R2-disabled fallback path.
+- GitHub Actions run `25212955639` completed successfully from `main` at `2963f02d37bff4d862e00027f7774688ff9f5e26`.
+- The run passed typecheck, unit/integration tests, Worker runtime tests, build, Cloudflare production preflight, remote D1 migrations, Worker deploy, production web build, and Pages deploy.
+- `GET https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` returned `200` with `ok: true`, `service: annotated-canvas-api`, and `mode: production`.
+- `GET https://annotated-canvas.pages.dev/`, `/home`, `/u/mira`, and `/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` returned `200`.
+- `GET /api/annotations/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` returns canonical `permalink_url: https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`.
+- `GET /api/feed` includes `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`.
+- `GET /api/me` from the Pages origin returned `401 authentication_required`, which is the expected signed-out state.
+- Google and X auth start endpoints returned `503 auth_not_configured`, listing the missing provider client IDs/secrets.
+- Earlier production API smoke created comment `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`, claim notice `claim_36899790-f89f-4add-9744-046b5b46c3f3`, and `POST /api/uploads/audio-commentary` returned `status: intent-created`.
+- Important boundary: this is API-level production smoke. It does not replace #30 browser p95 proof for exact selected text, real media current time, or no-network rejection from the unpacked extension.
 
 ## Known Blockers Before External Submission
 
-- Public deployment is live. #22 remains open for GitHub CI/CD secret wiring and final deploy-from-main proof.
+- Public deployment is live and #22 is closed. Do not list Cloudflare deploy-from-main as a remaining blocker.
 - Real Google/X OAuth needs provider client IDs/secrets, callback configuration, token exchange, and production-safe sessions. Tracked by #24.
 - Extension and web capture need final proof that user-entered text/time selections bind exactly to the publish payload. Tracked by #23.
 - Selected-text context menu, real media current-time capture, over-90-second browser validation, and audio commentary remain p95 extension proof gaps. Tracked by #30 and #26.
@@ -249,13 +261,12 @@ Production smoke evidence recorded on May 1, 2026:
 
 Submission language to use if posting before all blockers close:
 
-> Annotated Canvas is live as a source-linked MVP with public feed, permalinks, comments, claim filing, text commentary, and local unpacked Chrome side-panel proof. The remaining disclosed gaps are real Google/X OAuth credentials and token exchange, production extension p95 proof for exact selected text/media timing, durable recorded-audio storage, owned-media 240p processing policy, and GitHub Actions deploy-from-main wiring.
+> Annotated Canvas is live as a source-linked MVP with GitHub-deployed public Pages/Worker URLs, public feed, permalinks, comments, claim filing, text commentary, API-level 90-second validation, and local unpacked Chrome side-panel proof. The current approved public smoke annotation is `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`. The remaining disclosed gaps are real Google/X OAuth credentials and token exchange, production Chrome extension p95 proof for exact selected text/media timing and >90-second no-network rejection, durable recorded-audio storage, and owned-media 240p processing policy.
 
 Dependency gate map: `output/reports/gas-town/dependency-gate-map.md`.
 
 External inputs required before this packet can claim full bounty coverage:
 
-- Cloudflare account ID and scoped API token approved for GitHub `production` secrets, plus approval to set `CLOUDFLARE_DEPLOY_ENABLED=true` and prove deploy-from-main.
 - Google OAuth app credentials for `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/google/callback`.
 - X OAuth app credentials for `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/x/callback`.
 - R2 enablement for bucket `annotated-canvas-media`, or an approved alternate storage path for recorded audio commentary.
@@ -265,7 +276,9 @@ External inputs required before this packet can claim full bounty coverage:
 
 - [x] Public web URL is live and replaces the placeholder above.
 - [x] Public API health URL returns OK and replaces the placeholder above.
+- [x] GitHub Actions deploy-from-main is proven by run `25212955639`.
 - [x] Public feed, profile, permalink, removed state, and claim flow are smoke-tested.
+- [x] Approved public smoke annotation is current: `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`.
 - [x] Chrome extension builds with `npm run build:extension`.
 - [x] Unpacked extension loads from `dist/extension` and side panel opens in Chrome.
 - [ ] Extension Settings saves the production Worker URL and publishes through that API base without source edits.

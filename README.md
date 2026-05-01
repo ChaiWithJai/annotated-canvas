@@ -4,6 +4,15 @@ Annotated Canvas is a Chrome side panel and web client for clipping exact moment
 
 The product is based on the `Annotated` bounty context captured in this repository. The MVP intentionally stores third-party clips by reference, not by re-hosting third-party media bytes.
 
+## Submission Status
+
+- Public web: `https://annotated-canvas.pages.dev`
+- Public API health: `https://annotated-canvas-api.jaybhagat841.workers.dev/api/health`
+- Approved public smoke annotation: `https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`
+- Cloudflare deploy-from-main is proven by GitHub Actions run `25212955639`; issue #22 is closed.
+- The current MVP is live, source-linked, and smoke-tested at the API/web level. It is not yet a full bounty-complete claim.
+- Remaining bounty blockers are real Google/X OAuth and extension handoff (#24), production extension p95 proof for exact selected text/media timing and >90-second no-network rejection (#23/#30), durable recorded-audio storage and owned-media 240p/sub-480p policy (#26), and the final external submission decision (#28).
+
 ## Product Surfaces
 
 - Chrome MV3 side panel extension for capture from the current tab.
