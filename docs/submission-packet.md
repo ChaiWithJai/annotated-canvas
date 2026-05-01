@@ -20,7 +20,8 @@ Status buckets used below:
 - **Extension p95 still open**: #30/#23 still need browser evidence for production API-base persistence, exact selected text, exact real media `currentTime`, >90-second no-network rejection, and audio/microphone behavior.
 - **Auth blocker**: #24 still needs real Google/X apps, secrets, token exchange, user/session creation, and extension handoff. Production correctly fails closed with `auth_not_configured` today.
 - **Audio/240p blocker**: #26 still needs durable recorded-audio storage plus an explicit owned-media 240p/sub-480p policy. Third-party media remains source-linked by reference.
-- **Final submission requirement**: the human submitter must either wait for #23/#24/#26/#30 or copy the known-limitations language below into the external `annotated.lovable.app` submission.
+- **Reviewer journey blocker**: #38 must make the marketing/feed/signup/local-extension/capture/return loop dead simple before filming the demo video.
+- **Final submission requirement**: the human submitter must either wait for #23/#24/#26/#30/#38 or copy the known-limitations language below into the external `annotated.lovable.app` submission.
 
 ## Submission Links
 
@@ -190,7 +191,7 @@ curl -X POST http://localhost:8787/api/claims \
 
 ## Open-Issue Acceptance Notes
 
-These notes are the reviewer handoff for the six open tickets plus the closed Cloudflare dependency. The longer form lives in `docs/bounty-gap-audit.md`.
+These notes are the reviewer handoff for the seven open tickets plus the closed Cloudflare dependency. The longer form lives in `docs/bounty-gap-audit.md`.
 
 | Issue | Close only when | Learning note | p50 evidence | p95 evidence |
 | --- | --- | --- | --- | --- |
@@ -201,6 +202,7 @@ These notes are the reviewer handoff for the six open tickets plus the closed Cl
 | #26 Audio/240p | Recorded audio persists and owned-media 240p/sub-480p policy is implemented or explicitly excluded. | Third-party references and owned media processing are different rights surfaces. | Text commentary and audio intent behavior are clear. | Stored audio, upload validation, and owned-video rendition policy are enforceable. |
 | #28 Submission package | The external post uses current URLs, smoke IDs, and known limitations. | The packet is a reviewer script plus truth-in-advertising checklist. | Reviewer can run the demo without reading code. | Reviewer can reproduce highest-risk claims from linked evidence. |
 | #30 Extension smoke | Production extension p50 and p95 browser evidence is recorded. | MV3 side-panel proof must happen in Chrome, not only in unit tests. | Side panel saves API base and publishes one annotation. | Selected text, media current time, over-90 no-network rejection, and audio fallback are evidenced. |
+| #38 Reviewer journey | The happy/sad path and Krug pass are merged before filming. | Reviewer onboarding is a product surface, not a doc appendix. | Reviewer can discover, install/use, publish, and return to the feed from one script. | Auth, extension install, invalid range, audio/R2, and claim recovery states are understandable at the point of action. |
 
 ## Current Open GitHub Issues
 
@@ -212,6 +214,7 @@ Open issue snapshot for `ChaiWithJai/annotated-canvas`:
 - #26 `Epic: Audio commentary and 240p media policy`
 - #28 `Task: Prepare final bounty submission package`
 - #30 `Task: Local Chrome extension install and bounty smoke verification`
+- #38 `P0: Codify reviewer journey happy/sad paths and Krug pass before demo video`
 
 Recently completed issue evidence relevant to the packet:
 
@@ -258,10 +261,11 @@ Production smoke evidence recorded on May 1, 2026:
 - Audio commentary recording/finalize and 240p owned-media policy remain unresolved. Tracked by #26.
 - R2 is not enabled in the Cloudflare account yet. Production omits the R2 binding, so audio upload storage remains blocked by #26.
 - Chrome Web Store distribution is not part of the local MVP; reviewers load `dist/extension` unpacked.
+- Reviewer journey happy/sad paths and the Krug pass must land before filming the demo video. Tracked by #38.
 
 Submission language to use if posting before all blockers close:
 
-> Annotated Canvas is live as a source-linked MVP with GitHub-deployed public Pages/Worker URLs, public feed, permalinks, comments, claim filing, text commentary, API-level 90-second validation, and local unpacked Chrome side-panel proof. The current approved public smoke annotation is `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`. The remaining disclosed gaps are real Google/X OAuth credentials and token exchange, production Chrome extension p95 proof for exact selected text/media timing and >90-second no-network rejection, durable recorded-audio storage, and owned-media 240p processing policy.
+> Annotated Canvas is live as a source-linked MVP with GitHub-deployed public Pages/Worker URLs, public feed, permalinks, comments, claim filing, text commentary, API-level 90-second validation, and local unpacked Chrome side-panel proof. The current approved public smoke annotation is `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`. The remaining disclosed gaps are real Google/X OAuth credentials and token exchange, production Chrome extension p95 proof for exact selected text/media timing and >90-second no-network rejection, durable recorded-audio storage, owned-media 240p processing policy, and the final reviewer journey/Krug pass before demo filming.
 
 Dependency gate map: `output/reports/gas-town/dependency-gate-map.md`.
 
@@ -293,5 +297,6 @@ External inputs required before this packet can claim full bounty coverage:
 - [x] `File a claim` records a notice and does not automatically remove content.
 - [ ] Audio commentary limitation is documented with microphone/upload evidence and the production R2 `intent-created` fallback.
 - [ ] Demo Google and X auth behavior is documented, or production OAuth is fully configured.
+- [ ] Reviewer journey happy/sad paths and Krug pass from #38 are merged before filming.
 - [ ] Known limitations are copied into the bounty submission without hiding bounty-critical gaps.
 - [ ] Submission is posted to `https://annotated.lovable.app`.
