@@ -70,6 +70,19 @@
   gap: 22px;
 }
 
+.header-auth {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.header-auth__state {
+  color: var(--ac-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .composer,
 .comments-panel {
   border: 1px solid var(--ac-border);
@@ -217,10 +230,21 @@
   cursor: pointer;
 }
 
+.marketing-actions button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .marketing-actions .marketing-button--primary {
   background: var(--ac-primary);
   color: #fff;
   border-color: var(--ac-primary);
+}
+
+.auth-error {
+  margin: -10px 0 0;
+  color: var(--ac-danger);
+  font-size: 13px;
 }
 
 .marketing-preview {
@@ -526,6 +550,10 @@
 
   .rail--right {
     grid-template-columns: 1fr;
+  }
+
+  .header-auth {
+    justify-content: flex-start;
   }
 
   .permalink-view > h2 {

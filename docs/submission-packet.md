@@ -68,8 +68,9 @@ Expected service name: `annotated-canvas-api`.
 5. Select the generated `dist/extension` folder.
 6. Open an article, video, podcast page, or another source page.
 7. Open the Annotated Canvas side panel from the extension icon.
-8. Use the capture controls to create a text selection or time-range annotation with commentary.
-9. After rebuilding, return to `chrome://extensions` and reload the extension card.
+8. In Settings, set `API URL` to `https://annotated-canvas-api.jaybhagat841.workers.dev` for production proof, then click `Save settings`.
+9. Use the capture controls to create a text selection or time-range annotation with commentary.
+10. After rebuilding, return to `chrome://extensions` and reload the extension card.
 
 ## Demo Script
 
@@ -193,6 +194,14 @@ Local Chrome evidence recorded in #30:
 - Current-page capture on `http://127.0.0.1:5173/` published into the local Worker API.
 - `GET /api/feed` returned `ann_e496763a-fb93-457b-a3f7-a6659d4f3e9d` with the expected active-tab source and commentary.
 
+Production extension p50/p95 proof still to record:
+
+- p50: reload the newly built `dist/extension`, save `https://annotated-canvas-api.jaybhagat841.workers.dev` in Settings, publish one <=90-second annotation from a real tab, and verify the annotation id through production API/feed/permalink evidence.
+- p95 selected text: select an exact quote on a normal HTTPS page, choose `Annotate selected text`, and retain the selected text screenshot, side-panel quote preview, production `POST /api/annotations` payload, response id, and stored annotation proof showing the same quote.
+- p95 media time: seek a real `<video>` or `<audio>` element, record `document.querySelector("video,audio")?.currentTime`, verify side-panel `Start` seeds from that value, publish <=90 seconds, and retain the production payload with exact `start_seconds`, `end_seconds`, and `duration_seconds`.
+- p95 over-90 rejection: enter a range longer than 90 seconds, retain the side-panel error `Clip length must be 90 seconds or less.`, and retain Network/HAR proof that no production `POST /api/annotations` was sent.
+- p95 audio/R2 limitation: record the microphone prompt outcome and the production `POST /api/uploads/audio-commentary` response. Current expected limitation is `upload.status: "intent-created"` rather than `"stored"` because production omits `MEDIA_BUCKET` until #26 enables R2 or another durable audio path.
+
 Production smoke evidence recorded on May 1, 2026:
 
 - `GET https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` returned `200`.
@@ -213,6 +222,16 @@ Production smoke evidence recorded on May 1, 2026:
 - R2 is not enabled in the Cloudflare account yet. Production omits the R2 binding, so audio upload storage remains blocked by #26.
 - Chrome Web Store distribution is not part of the local MVP; reviewers load `dist/extension` unpacked.
 
+Dependency gate map: `output/reports/gas-town/dependency-gate-map.md`.
+
+External inputs required before this packet can claim full bounty coverage:
+
+- Cloudflare account ID and scoped API token approved for GitHub `production` secrets, plus approval to set `CLOUDFLARE_DEPLOY_ENABLED=true` and prove deploy-from-main.
+- Google OAuth app credentials for `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/google/callback`.
+- X OAuth app credentials for `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/x/callback`.
+- R2 enablement for bucket `annotated-canvas-media`, or an approved alternate storage path for recorded audio commentary.
+- Product/legal decision for third-party reference-only media versus owned-video 240p/sub-480p processing.
+
 ## Final Submission Checklist
 
 - [x] Public web URL is live and replaces the placeholder above.
@@ -220,12 +239,17 @@ Production smoke evidence recorded on May 1, 2026:
 - [x] Public feed, profile, permalink, removed state, and claim flow are smoke-tested.
 - [x] Chrome extension builds with `npm run build:extension`.
 - [x] Unpacked extension loads from `dist/extension` and side panel opens in Chrome.
+- [ ] Extension Settings saves the production Worker URL and publishes through that API base without source edits.
 - [ ] Current-page capture publishes the exact selected text or media time range.
+- [ ] Selected-text context menu proof includes exact quote preservation in the production payload and stored annotation.
+- [ ] Real media current-time proof includes browser `currentTime`, seeded side-panel fields, and exact production payload media seconds.
 - [ ] URL-input capture publishes with the original `source_url`.
 - [x] Media duration over 90 seconds is rejected.
+- [ ] Browser p95 proof shows over-90-second extension publish is blocked before any production network request.
 - [x] Every public annotation links back to its original source.
 - [x] Comments and engagement are demonstrated on a public annotation.
 - [x] `File a claim` records a notice and does not automatically remove content.
+- [ ] Audio commentary limitation is documented with microphone/upload evidence and the production R2 `intent-created` fallback.
 - [ ] Demo Google and X auth behavior is documented, or production OAuth is fully configured.
 - [ ] Known limitations are copied into the bounty submission without hiding bounty-critical gaps.
 - [ ] Submission is posted to `https://annotated.lovable.app`.

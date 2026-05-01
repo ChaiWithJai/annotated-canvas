@@ -4,6 +4,8 @@ import { Bell, Check, Flag, LogIn, Send, UserPlus } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   API_BASE,
+  ApiRequestError,
+  loadCurrentViewer,
   loadAnnotation,
   loadComments,
   loadFeed,
@@ -12,11 +14,14 @@ import {
   publishWebAnnotation,
   sendEngagement,
   setFollow,
+  startAuth,
   submitClaim,
-  submitComment
+  submitComment,
+  type AuthProvider
 } from "./api";
 
 type View = "home" | "feed" | "profile" | "annotation" | "empty" | "removed" | "signup";
+type ViewerState = "loading" | "signed-in" | "signed-out";
 
 function clipSource(clip: AnnotationResource["clip"]) {
   return "source" in clip ? clip.source : undefined;
@@ -44,6 +49,12 @@ function parseSeconds(value: string): number {
 
 export function App() {
   const [view, setView] = useState<View>(() => viewFromPath(window.location.pathname));
+  const [viewerState, setViewerState] = useState<ViewerState>("loading");
+  const [viewer, setViewer] = useState<Pick<UserResource, "id" | "handle" | "display_name" | "avatar_url"> | null>(
+    null
+  );
+  const [authPending, setAuthPending] = useState<AuthProvider | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [claimTarget, setClaimTarget] = useState<AnnotationResource | null>(null);
   const [claimReason, setClaimReason] = useState("Please review this annotation and its source usage.");
   const [claimStatus, setClaimStatus] = useState<string | null>(null);
@@ -85,6 +96,26 @@ export function App() {
   const featuredSource = clipSource(featured.clip);
 
   useEffect(() => {
+    let cancelled = false;
+
+    void loadCurrentViewer()
+      .then((session) => {
+        if (cancelled) return;
+        setViewer(session.user);
+        setViewerState(session.user ? "signed-in" : "signed-out");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setViewer(null);
+        setViewerState("signed-out");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (view === "feed") {
       void loadFeed().then(setFeedItems);
     }
@@ -104,10 +135,44 @@ export function App() {
     }
   }, [view]);
 
+  function showAuthChoice() {
+    setAuthError(null);
+    window.history.pushState(null, "", "/signup");
+    setView("signup");
+  }
+
   function navigate(nextView: "feed" | "profile" | "annotation") {
     const path = nextView === "feed" ? "/" : nextView === "profile" ? "/u/mira" : "/a/ann_video_minimalism";
     window.history.pushState(null, "", path);
     setView(nextView);
+  }
+
+  function providerLabel(provider: AuthProvider) {
+    return provider === "google" ? "Google" : "X";
+  }
+
+  function authErrorMessage(error: unknown, provider: AuthProvider) {
+    if (error instanceof ApiRequestError) {
+      const configuredError =
+        error.code?.includes("not_configured") || error.message.toLowerCase().includes("configured");
+      return configuredError ? `${providerLabel(provider)} sign-in is not configured yet.` : error.message;
+    }
+
+    return `Could not start ${providerLabel(provider)} sign-in.`;
+  }
+
+  async function handleAuthStart(provider: AuthProvider) {
+    setAuthError(null);
+    setAuthPending(provider);
+
+    try {
+      const authorizationUrl = await startAuth(provider, window.location.href);
+      window.location.href = authorizationUrl;
+    } catch (error) {
+      setAuthError(authErrorMessage(error, provider));
+    } finally {
+      setAuthPending(null);
+    }
   }
 
   function replaceAnnotation(next: AnnotationResource) {
@@ -216,10 +281,21 @@ export function App() {
         active={view}
         onNavigate={navigate}
         actions={
-          <Button tone="secondary">
-            <LogIn size={16} aria-hidden="true" />
-            Sign in
-          </Button>
+          <div className="header-auth">
+            <span className="header-auth__state" aria-live="polite">
+              {viewerState === "loading"
+                ? "Checking session"
+                : viewer
+                  ? `Signed in as @${viewer.handle}`
+                  : "Signed out"}
+            </span>
+            {viewer ? null : (
+              <Button tone="secondary" type="button" onClick={showAuthChoice}>
+                <LogIn size={16} aria-hidden="true" />
+                Sign in
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -255,19 +331,31 @@ export function App() {
               to the original page.
             </p>
             <div className="marketing-actions">
-              <a
+              <button
+                type="button"
                 className="marketing-button marketing-button--primary"
-                href={`${API_BASE}/api/auth/google/start?return_to=/`}
+                onClick={() => void handleAuthStart("google")}
+                disabled={authPending !== null}
               >
-                Sign in with Google
-              </a>
-              <a className="marketing-button" href={`${API_BASE}/api/auth/x/start?return_to=/`}>
-                Sign in with X
-              </a>
+                {authPending === "google" ? "Starting Google..." : "Sign in with Google"}
+              </button>
+              <button
+                type="button"
+                className="marketing-button"
+                onClick={() => void handleAuthStart("x")}
+                disabled={authPending !== null}
+              >
+                {authPending === "x" ? "Starting X..." : "Sign in with X"}
+              </button>
               <button type="button" onClick={() => navigate("feed")}>
                 View public feed
               </button>
             </div>
+            {authError ? (
+              <p className="auth-error" role="alert">
+                {authError}
+              </p>
+            ) : null}
             <div className="feed-list marketing-preview">
               {feedItems.slice(0, 2).map((annotation) => (
                 <AnnotationCard
