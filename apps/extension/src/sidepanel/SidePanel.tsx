@@ -3,9 +3,11 @@ import { Button, SourcePill } from "@annotated/ui";
 import { Clock, FileText, Layers, Mic, Scissors, Send, Settings, Square, UserCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  readApiBase,
   publishAnnotation,
   readActiveTabContext,
   readPendingCapture,
+  saveApiBase,
   type PageCaptureContext
 } from "./api";
 
@@ -31,6 +33,8 @@ export function SidePanel() {
   const [status, setStatus] = useState<"idle" | "publishing" | "published">("idle");
   const [error, setError] = useState<string | null>(null);
   const [pageContext, setPageContext] = useState<PageCaptureContext | null>(null);
+  const [apiBaseUrl, setApiBaseUrl] = useState("");
+  const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
@@ -61,6 +65,10 @@ export function SidePanel() {
         }
       }
     });
+  }, []);
+
+  useEffect(() => {
+    void readApiBase().then(setApiBaseUrl);
   }, []);
 
   function parseTimeInput(value: string): number {
@@ -135,9 +143,16 @@ export function SidePanel() {
       setError(
         caught instanceof Error && caught.message === "range_too_long"
           ? "Clip length must be 90 seconds or less."
-          : "Could not publish. Confirm the local API is running on port 8787."
+          : "Could not publish. Confirm the API URL in Settings."
       );
     }
+  }
+
+  async function saveSettings() {
+    setSettingsStatus("Saving...");
+    const nextApiBase = await saveApiBase(apiBaseUrl);
+    setApiBaseUrl(nextApiBase);
+    setSettingsStatus("Saved.");
   }
 
   return (
@@ -230,9 +245,29 @@ export function SidePanel() {
             {audioBlob ? <span>Voice note ready</span> : null}
           </div>
         </section>
+      ) : mode === "settings" ? (
+        <section className="settings-pane">
+          <label>
+            API URL
+            <input
+              value={apiBaseUrl}
+              onChange={(event) => {
+                setApiBaseUrl(event.target.value);
+                setSettingsStatus(null);
+              }}
+              placeholder="http://localhost:8787"
+              inputMode="url"
+            />
+          </label>
+          <p>Use localhost for local testing or the deployed Worker URL for review.</p>
+          <Button tone="secondary" onClick={saveSettings}>
+            Save settings
+          </Button>
+          {settingsStatus ? <span>{settingsStatus}</span> : null}
+        </section>
       ) : (
         <section className="empty-pane">
-          <p>{mode === "settings" ? "Sign in to sync captures and publish from this browser." : "No saved items yet."}</p>
+          <p>No saved items yet.</p>
         </section>
       )}
 

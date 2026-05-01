@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { publishAnnotation } from "./api";
+import { publishAnnotation, readApiBase, saveApiBase } from "./api";
 
 describe("extension publish API", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("publishes the exact p50 time range entered in the side panel", async () => {
@@ -96,5 +97,42 @@ describe("extension publish API", () => {
       kind: "audio",
       audio_asset_id: "upl_test"
     });
+  });
+
+  it("uses the stored API base so review builds can target production without source edits", async () => {
+    const storage = new Map<string, string>();
+    vi.stubGlobal("chrome", {
+      storage: {
+        local: {
+          get: vi.fn(async (key: string) => ({ [key]: storage.get(key) })),
+          set: vi.fn(async (value: Record<string, string>) => {
+            Object.entries(value).forEach(([key, nextValue]) => storage.set(key, nextValue));
+          })
+        }
+      }
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ annotation: { id: "ann_test" } }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    await saveApiBase("https://annotated-canvas-api.example.workers.dev/");
+    expect(await readApiBase()).toBe("https://annotated-canvas-api.example.workers.dev");
+
+    await publishAnnotation({
+      context: {
+        source_url: "https://example.com/article",
+        title: "Example article",
+        selection_text: "Selected text"
+      },
+      commentary: "Configurable API base test.",
+      captureKind: "text"
+    });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://annotated-canvas-api.example.workers.dev/api/annotations"
+    );
   });
 });

@@ -17,6 +17,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: "lucide-react",
+        replacement: resolve(root, "test/lucide-react.tsx")
+      },
+      {
         find: /^@annotated\/ui\/styles\.css$/,
         replacement: resolve(root, "packages/ui/src/styles.css")
       },

@@ -184,3 +184,25 @@ export async function submitComment(annotationId: string, body: string): Promise
   const payload = (await response.json()) as { comment: CommentResource };
   return payload.comment;
 }
+
+export async function setFollow(targetUserId: string, following: boolean): Promise<UserResource> {
+  if (!shouldFetch) {
+    return {
+      ...fixtures.currentUser,
+      id: targetUserId,
+      viewer_is_following: following,
+      stats: {
+        followers: following ? 129 : 128,
+        following: 64,
+        annotations: 1
+      }
+    };
+  }
+
+  const response = await fetch(`${API_BASE}/api/follows/${targetUserId}`, {
+    method: following ? "PUT" : "DELETE"
+  });
+  if (!response.ok) throw new Error("follow update failed");
+  const payload = (await response.json()) as { user: UserResource };
+  return payload.user;
+}

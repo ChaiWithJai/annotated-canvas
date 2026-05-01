@@ -197,6 +197,41 @@ body {
   color: var(--ac-muted);
 }
 
+.settings-pane {
+  padding: 22px 20px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.settings-pane label {
+  display: grid;
+  gap: 7px;
+  color: var(--ac-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-pane input {
+  height: 40px;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  padding: 0 10px;
+  color: var(--ac-text);
+  background: var(--ac-surface);
+}
+
+.settings-pane p,
+.settings-pane span {
+  margin: 0;
+  color: var(--ac-muted);
+  font-size: 12px;
+}
+
+.settings-pane .ac-button {
+  justify-self: start;
+}
+
 .sidepanel-footer {
   border-top: 1px solid var(--ac-border);
   padding: 14px 20px 18px;

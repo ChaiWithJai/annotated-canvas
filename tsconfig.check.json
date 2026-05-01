@@ -4,13 +4,16 @@
     "types": ["vitest/globals", "@testing-library/jest-dom", "@cloudflare/workers-types", "chrome"],
     "noEmit": true
   },
-  "include": [
-    "apps/**/*.ts",
-    "apps/**/*.tsx",
-    "packages/**/*.ts",
-    "packages/**/*.tsx",
-    "types/**/*.d.ts",
+  "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "packages/**/*.tsx", "types/**/*.d.ts"],
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "dist",
+    "apps/**/dist",
+    "packages/**/dist",
+    "node_modules",
     "vitest.config.ts",
-    "vitest.cloudflare.config.ts"
+    "vitest.cloudflare.config.ts",
+    "vitest.setup.ts"
   ]
 }

@@ -15,7 +15,9 @@
     "build:contracts": "tsc -p packages/contracts/tsconfig.json",
     "build:web": "vite build --config apps/web/vite.config.ts",
     "build:extension": "vite build --config apps/extension/vite.config.ts",
-    "test": "vitest run",
+    "test": "npm run test:node && npm run test:web",
+    "test:node": "vitest run packages/contracts/src/index.test.ts apps/api/src/app.test.ts apps/extension/src/sidepanel/api.test.ts --environment node --no-file-parallelism --maxWorkers=1 --pool=forks --isolate=false",
+    "test:web": "vitest run apps/web/src/App.test.tsx --environment happy-dom --no-file-parallelism --maxWorkers=1 --pool=forks --isolate=false",
     "test:watch": "vitest",
     "test:api": "vitest run apps/api",
     "test:contracts": "vitest run packages/contracts",
@@ -32,7 +34,6 @@
     "cf:deploy:production": "node scripts/cloudflare/setup-production.mjs --apply --deploy --pages"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^6.0.1",
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -48,11 +49,13 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "happy-dom": "^20.9.0",
     "jsdom": "^29.1.1",
     "node-addon-api": "^8.7.0",
     "node-gyp": "^12.3.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.10",
+    "vite": "^7.3.2",
     "vitest": "^4.1.5",
     "wrangler": "^4.87.0"
   }

@@ -1,0 +1,23 @@
+const Icon = (props: Record<string, unknown>) => <svg {...props} />;
+
+export const Bell = Icon;
+export const Check = Icon;
+export const Clock = Icon;
+export const ExternalLink = Icon;
+export const FileText = Icon;
+export const Flag = Icon;
+export const Heart = Icon;
+export const Layers = Icon;
+export const LogIn = Icon;
+export const MessageCircle = Icon;
+export const Mic = Icon;
+export const Play = Icon;
+export const Quote = Icon;
+export const Repeat2 = Icon;
+export const Scissors = Icon;
+export const Send = Icon;
+export const Settings = Icon;
+export const Square = Icon;
+export const Timer = Icon;
+export const UserCircle = Icon;
+export const UserPlus = Icon;

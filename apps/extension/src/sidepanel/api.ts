@@ -1,6 +1,7 @@
 import { AnnotationCreateSchema, SourceRefSchema, toSourceDomain } from "@annotated/contracts";
 
-const API_BASE = "http://localhost:8787";
+export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
+const API_BASE_STORAGE_KEY = "apiBaseUrl";
 
 export interface PageCaptureContext {
   source_url?: string;
@@ -22,6 +23,27 @@ export interface PublishOptions {
     end_seconds: number;
   };
   audioBlob?: Blob | null;
+}
+
+function normalizeApiBase(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+export async function readApiBase(): Promise<string> {
+  if (!globalThis.chrome?.storage?.local) return DEFAULT_API_BASE;
+  const result = await chrome.storage.local.get(API_BASE_STORAGE_KEY);
+  const stored = typeof result[API_BASE_STORAGE_KEY] === "string" ? result[API_BASE_STORAGE_KEY] : "";
+  return stored ? normalizeApiBase(stored) : DEFAULT_API_BASE;
+}
+
+export async function saveApiBase(value: string): Promise<string> {
+  const normalized = normalizeApiBase(value);
+  if (globalThis.chrome?.storage?.local) {
+    await chrome.storage.local.set({
+      [API_BASE_STORAGE_KEY]: normalized || DEFAULT_API_BASE
+    });
+  }
+  return normalized || DEFAULT_API_BASE;
 }
 
 export async function readActiveTabContext(): Promise<PageCaptureContext | null> {
@@ -47,7 +69,8 @@ export async function readPendingCapture(): Promise<PageCaptureContext | null> {
 }
 
 async function uploadAudioCommentary(audioBlob: Blob): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/uploads/audio-commentary`, {
+  const apiBase = await readApiBase();
+  const response = await fetch(`${apiBase}/api/uploads/audio-commentary`, {
     method: "POST",
     headers: {
       "Content-Type": audioBlob.type || "audio/webm"
@@ -61,6 +84,7 @@ async function uploadAudioCommentary(audioBlob: Blob): Promise<string> {
 
 export async function publishAnnotation(options: PublishOptions) {
   const { context, commentary, captureKind, range, audioBlob } = options;
+  const apiBase = await readApiBase();
   const sourceUrl = context.source_url ?? "https://www.youtube.com/watch?v=annotated-demo&t=263s";
   const source = SourceRefSchema.parse({
     source_url: sourceUrl,
@@ -108,7 +132,7 @@ export async function publishAnnotation(options: PublishOptions) {
     }
   });
 
-  const response = await fetch(`${API_BASE}/api/annotations`, {
+  const response = await fetch(`${apiBase}/api/annotations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

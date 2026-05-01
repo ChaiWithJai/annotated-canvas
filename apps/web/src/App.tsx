@@ -11,6 +11,7 @@ import {
   loadProfileAnnotations,
   publishWebAnnotation,
   sendEngagement,
+  setFollow,
   submitClaim,
   submitComment
 } from "./api";
@@ -176,6 +177,36 @@ export function App() {
       });
     } catch {
       setCommentStatus("Could not post comment. Confirm the API is running.");
+    }
+  }
+
+  async function handleFollowToggle() {
+    const nextFollowing = !isFollowing;
+    const followerDelta = nextFollowing ? 1 : -1;
+    setIsFollowing(nextFollowing);
+    setProfile((current) => ({
+      ...current,
+      viewer_is_following: nextFollowing,
+      stats: {
+        ...current.stats,
+        followers: Math.max(0, current.stats.followers + followerDelta)
+      }
+    }));
+
+    try {
+      const nextProfile = await setFollow(profile.id, nextFollowing);
+      setProfile(nextProfile);
+      setIsFollowing(nextProfile.viewer_is_following);
+    } catch {
+      setIsFollowing(!nextFollowing);
+      setProfile((current) => ({
+        ...current,
+        viewer_is_following: !nextFollowing,
+        stats: {
+          ...current.stats,
+          followers: Math.max(0, current.stats.followers - followerDelta)
+        }
+      }));
     }
   }
 
@@ -418,7 +449,7 @@ export function App() {
               <h2>{profile.display_name}</h2>
               <p>@{profile.handle}</p>
               <p>{profile.bio}</p>
-              <Button tone={isFollowing ? "secondary" : "primary"} onClick={() => setIsFollowing(!isFollowing)}>
+              <Button tone={isFollowing ? "secondary" : "primary"} onClick={handleFollowToggle}>
                 <UserPlus size={16} aria-hidden="true" />
                 {isFollowing ? "Following" : "Follow"}
               </Button>
