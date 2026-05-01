@@ -94,6 +94,7 @@ Expected response shape:
 - [x] Settings tab saves the API URL in `chrome.storage.local`.
 - [x] Settings tab includes local and production API-base presets.
 - [x] Capture tab can save and restore the latest local draft from Chrome extension storage.
+- [x] Published tab shows the last production/local annotation id and permalink returned by `POST /api/annotations`.
 - [ ] Settings tab saves `https://annotated-canvas-api.jaybhagat841.workers.dev`, survives side-panel close/reopen, and publishes to the production Worker without source edits.
 - [ ] On a text page, select text, right-click, choose `Annotate selected text`, and confirm the side panel displays the selected text path.
 - [x] On a normal page, confirm the side panel reads the active tab URL/title through the content-script/tab fallback path.
@@ -101,7 +102,24 @@ Expected response shape:
 - [x] Enter a range of 90 seconds or less, add commentary, publish, and confirm the local API returns success.
 - [x] Verify the created annotation appears in the API feed or web client.
 - [ ] Enter a range over 90 seconds and confirm publish is blocked with `Clip length must be 90 seconds or less.` before the network publish.
+- [ ] Enter an end time at or before the start time and confirm publish is blocked with `End time must be after start time.` before the network publish.
 - [ ] Record a voice note, handle the microphone prompt, and publish it if the local API upload path is available; otherwise record the exact blocker.
+
+## Worker B Audit, May 1 2026
+
+Current implementation status against `bounty.txt`:
+
+| Requirement | Current extension status |
+| --- | --- |
+| Sidebar Chrome extension | Implemented as MV3 side panel with `chrome.sidePanel` and loadable `dist/extension`. Needs refreshed production browser screenshot/recording. |
+| Current page URL | Implemented through content-script `ANNOTATED_READ_CONTEXT` with a tab URL/title fallback. Local Chrome proof exists; production URL publish still needs evidence. |
+| Selected text | Implemented through context menu `Annotate selected text`, one-shot `pendingCapture`, and `clip.text.quote` trimming. Needs browser proof that the exact selected quote is preserved in production payload and stored annotation. |
+| Audio/video time range | Implemented through top-level `video, audio` current-time capture and side-panel Start/End fields. Needs browser proof on real media that seeded seconds match `POST /api/annotations`. |
+| Commentary | Implemented for text commentary and recorded audio commentary upload-before-publish. Audio storage remains limited by the current production upload fallback until #26 enables durable R2 storage. |
+| Publish to production API | Implemented through persisted Settings API base and Production preset. Needs side-panel production proof using `https://annotated-canvas-api.jaybhagat841.workers.dev`. |
+| Permalink/feed proof | API returns the annotation resource with `id` and `permalink_url`; the side panel now surfaces the last publish id/permalink in the Published tab for smoke evidence. |
+| Stale state handling | Pending selected-text captures are cleared after one read, local drafts are explicit, and failed publishes clear any previous publish result before retry. |
+| 90-second cap | Implemented in side panel and publish helper before audio upload or annotation fetch. Reversed/zero-length media ranges are now rejected before fetch instead of being silently adjusted. |
 
 ## Automated Extension Coverage
 
@@ -117,7 +135,9 @@ Covered cases:
 - p50 media publish preserves the exact entered start/end/duration.
 - p95 media ranges over 90 seconds throw `range_too_long` before annotation fetch.
 - p95 audio commentary with a range over 90 seconds throws before upload or annotation fetch.
+- Reversed media ranges throw `invalid_range` before annotation fetch.
 - p95 selected-text publish trims and preserves the exact quote in `clip.text.quote` and uses `client_context.capture_method: "selection"`.
+- Publish responses are parsed into a full annotation resource so the side panel can show the returned id and permalink.
 - Production API-base persistence normalizes `https://annotated-canvas-api.jaybhagat841.workers.dev/` to `https://annotated-canvas-api.jaybhagat841.workers.dev`.
 - Pending selected-text capture clears after one read.
 - Local capture drafts persist with trimmed commentary.
@@ -171,6 +191,8 @@ API base saved:
 5. Fetch the returned annotation or `GET https://annotated-canvas-api.jaybhagat841.workers.dev/api/feed` and confirm the new id appears.
 
 Evidence to retain: side-panel source screenshot, Network `POST /api/annotations` request to the production Worker, request JSON with `client_context.surface: "extension"`, response annotation id, feed/permalink/API proof for that id, and the exact commentary string used for correlation.
+
+After publish, open the side panel Published tab and record the returned annotation id/permalink displayed there before switching tabs or retrying a publish.
 
 Template:
 
@@ -351,3 +373,39 @@ Capture these in `docs/issue-learning-loop.md` or the issue thread after browser
 - Over-90-second client-side validation still needs browser proof, even though unit coverage exercises the publish path.
 - Audio commentary needs microphone permission and upload proof; production currently returns the R2-disabled `intent-created` fallback until #26 enables durable storage.
 - Production API URL switching needs browser proof against `https://annotated-canvas-api.jaybhagat841.workers.dev`.
+
+## Worker B Issue Comment Draft
+
+Use this for #23 and #30 after this branch lands or as a coordination update:
+
+```md
+Worker B extension smoke audit update, May 1 2026:
+
+Code/doc changes are scoped to `apps/extension/**` and `docs/chrome-extension-local-smoke.md`.
+
+What changed:
+- The extension publish helper now parses the production `POST /api/annotations` response into a full annotation resource.
+- The side panel Published tab now shows the last returned annotation id and permalink, so p50/p95 smoke evidence can record the production id without digging through DevTools.
+- Media publishes now reject zero-length or reversed ranges before upload/fetch with `End time must be after start time.` instead of silently changing the entered end time.
+- The smoke doc now maps the current extension state against `bounty.txt` and calls out remaining browser proof.
+
+Verified:
+- `npx vitest run apps/extension/src/sidepanel/api.test.ts --environment node --no-file-parallelism --maxWorkers=1 --pool=forks --isolate=false --reporter=verbose` -> 10 extension tests passed.
+- `npm run build:extension` -> rebuilt `dist/extension`.
+- `npm run typecheck` -> passed.
+- `curl -i https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` -> `200`, `mode: "production"`.
+- `curl -i https://annotated-canvas.pages.dev/` -> `200`.
+
+Not completed in this pass:
+- I did not load/reload the unpacked extension in desktop Chrome because installing/loading a browser extension is a user-confirmed action.
+- I did not create a new public production annotation because that posts public test content and should be confirmed at action time.
+- `npm test` still hung in the combined Vitest node startup path before spawning workers; the focused extension suite passed.
+
+Close gate still needs browser evidence:
+- Save `https://annotated-canvas-api.jaybhagat841.workers.dev` in side-panel Settings and confirm it persists after reopen.
+- Publish one production p50 annotation and record the side-panel Published id/permalink plus API/feed proof.
+- Use `Annotate selected text` on a normal page and prove the exact quote is preserved in payload and stored annotation.
+- Use a real `<video>` or `<audio>` page and prove current time -> Start/End -> production media seconds.
+- Enter a >90s range and prove the side-panel error appears with no production `POST /api/annotations`.
+- Record microphone/audio upload behavior and the current #26 durable-storage limitation.
+```

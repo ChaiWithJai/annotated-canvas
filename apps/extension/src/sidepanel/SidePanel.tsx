@@ -1,6 +1,19 @@
 import { SourceRefSchema, toSourceDomain } from "@annotated/contracts";
 import { Button, SourcePill } from "@annotated/ui";
-import { Clock, FileText, Layers, Mic, RotateCcw, Save, Scissors, Send, Settings, Square, UserCircle } from "lucide-react";
+import {
+  Clock,
+  ExternalLink,
+  FileText,
+  Layers,
+  Mic,
+  RotateCcw,
+  Save,
+  Scissors,
+  Send,
+  Settings,
+  Square,
+  UserCircle
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_API_BASE,
@@ -13,6 +26,7 @@ import {
   saveApiBase,
   saveCaptureDraft,
   type CaptureDraft,
+  type PublishAnnotationResult,
   type PageCaptureContext
 } from "./api";
 
@@ -42,6 +56,9 @@ export function SidePanel() {
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
   const [savedDraft, setSavedDraft] = useState<CaptureDraft | null>(null);
   const [draftStatus, setDraftStatus] = useState<string | null>(null);
+  const [publishedAnnotation, setPublishedAnnotation] = useState<PublishAnnotationResult["annotation"] | null>(
+    null
+  );
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
@@ -132,25 +149,33 @@ export function SidePanel() {
   async function publish() {
     setStatus("publishing");
     setError(null);
+    setPublishedAnnotation(null);
     try {
       const startSeconds = parseTimeInput(startTime);
       const endSeconds = parseTimeInput(endTime);
+      if (captureKind === "video" && endSeconds <= startSeconds) {
+        throw new Error("invalid_range");
+      }
       if (captureKind === "video" && endSeconds - startSeconds > 90) {
         throw new Error("range_too_long");
       }
-      await publishAnnotation({
+      const result = await publishAnnotation({
         context: pageContext ?? {},
         commentary,
         captureKind,
         range: { start_seconds: startSeconds, end_seconds: endSeconds },
         audioBlob: commentaryMode === "audio" ? audioBlob : null
       });
+      setPublishedAnnotation(result.annotation);
       setStatus("published");
+      setMode("annotations");
     } catch (caught) {
       setStatus("idle");
       setError(
         caught instanceof Error && caught.message === "range_too_long"
           ? "Clip length must be 90 seconds or less."
+          : caught instanceof Error && caught.message === "invalid_range"
+            ? "End time must be after start time."
           : "Could not publish. Confirm the API URL in Settings."
       );
     }
@@ -332,8 +357,32 @@ export function SidePanel() {
           )}
         </section>
       ) : (
-        <section className="empty-pane">
-          <p>Published items appear in the API feed after publish.</p>
+        <section className="published-pane">
+          {publishedAnnotation ? (
+            <article className="published-card">
+              <div>
+                <strong>Last publish</strong>
+                <span>{publishedAnnotation.id}</span>
+              </div>
+              <dl>
+                <div>
+                  <dt>Permalink</dt>
+                  <dd>
+                    <a href={publishedAnnotation.permalink_url} target="_blank" rel="noreferrer">
+                      <ExternalLink size={14} aria-hidden="true" />
+                      Open permalink
+                    </a>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Source</dt>
+                  <dd>{publishedAnnotation.clip.source?.source_url ?? "Uploaded source"}</dd>
+                </div>
+              </dl>
+            </article>
+          ) : (
+            <p>Published items appear in the API feed after publish.</p>
+          )}
         </section>
       )}
 

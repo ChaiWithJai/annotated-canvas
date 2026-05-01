@@ -208,9 +208,70 @@ body {
   font-size: 12px;
 }
 
-.empty-pane {
+.empty-pane,
+.published-pane {
   padding: 28px 20px;
   color: var(--ac-muted);
+}
+
+.published-card {
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  padding: 14px;
+  display: grid;
+  gap: 14px;
+  color: var(--ac-muted);
+}
+
+.published-card > div {
+  display: grid;
+  gap: 4px;
+}
+
+.published-card strong {
+  color: var(--ac-text);
+  font-size: 14px;
+}
+
+.published-card span,
+.published-card dt,
+.published-card dd,
+.published-card p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.published-card span {
+  font-family: var(--ac-mono);
+  overflow-wrap: anywhere;
+}
+
+.published-card dl {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.published-card dl div {
+  display: grid;
+  gap: 4px;
+}
+
+.published-card dt {
+  color: var(--ac-text);
+  font-weight: 700;
+}
+
+.published-card dd {
+  overflow-wrap: anywhere;
+}
+
+.published-card a {
+  color: var(--ac-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
 }
 
 .draft-pane {

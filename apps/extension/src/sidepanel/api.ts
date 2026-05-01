@@ -1,4 +1,10 @@
-import { AnnotationCreateSchema, SourceRefSchema, toSourceDomain } from "@annotated/contracts";
+import {
+  AnnotationCreateSchema,
+  AnnotationResourceSchema,
+  SourceRefSchema,
+  toSourceDomain,
+  type AnnotationResource
+} from "@annotated/contracts";
 
 export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
 export const PRODUCTION_API_BASE = "https://annotated-canvas-api.jaybhagat841.workers.dev";
@@ -39,8 +45,17 @@ export interface CaptureDraft {
   saved_at: string;
 }
 
+export interface PublishAnnotationResult {
+  annotation: AnnotationResource;
+}
+
 function normalizeApiBase(value: string): string {
   return value.trim().replace(/\/+$/, "");
+}
+
+function floorNonNegative(value: number | undefined, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.floor(value));
 }
 
 export async function readApiBase(): Promise<string> {
@@ -124,7 +139,7 @@ async function uploadAudioCommentary(audioBlob: Blob): Promise<string> {
   return payload.upload.asset_id ?? payload.upload.id;
 }
 
-export async function publishAnnotation(options: PublishOptions) {
+export async function publishAnnotation(options: PublishOptions): Promise<PublishAnnotationResult> {
   const { context, commentary, captureKind, range, audioBlob } = options;
   const apiBase = await readApiBase();
   const sourceUrl = context.source_url ?? "https://www.youtube.com/watch?v=annotated-demo&t=263s";
@@ -133,10 +148,13 @@ export async function publishAnnotation(options: PublishOptions) {
     source_domain: toSourceDomain(sourceUrl),
     title: context.title || "Untitled source"
   });
-  const currentTime = Math.max(0, Math.floor(context.media?.current_time ?? 263));
-  const startSeconds = Math.max(0, Math.floor(range?.start_seconds ?? currentTime));
-  const endSeconds = Math.max(startSeconds + 1, Math.floor(range?.end_seconds ?? currentTime + 47));
+  const currentTime = floorNonNegative(context.media?.current_time, 263);
+  const startSeconds = floorNonNegative(range?.start_seconds, currentTime);
+  const endSeconds = floorNonNegative(range?.end_seconds, currentTime + 47);
   const durationSeconds = endSeconds - startSeconds;
+  if (captureKind === "video" && durationSeconds <= 0) {
+    throw new Error("invalid_range");
+  }
   if (captureKind === "video" && durationSeconds > 90) {
     throw new Error("range_too_long");
   }
@@ -186,5 +204,8 @@ export async function publishAnnotation(options: PublishOptions) {
     body: JSON.stringify(payload)
   });
   if (!response.ok) throw new Error("publish failed");
-  return response.json();
+  const responsePayload = (await response.json()) as { annotation?: unknown };
+  return {
+    annotation: AnnotationResourceSchema.parse(responsePayload.annotation)
+  };
 }
