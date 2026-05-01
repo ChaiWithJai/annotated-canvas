@@ -29,6 +29,12 @@
       "id": "46ef271ad63242ea86c3a657f05fa556"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "annotated-canvas-media"
+    }
+  ],
   "queues": {
     "producers": [
       {

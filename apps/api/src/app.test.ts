@@ -27,11 +27,27 @@ async function body(response: Response) {
 function createSessionKv(seed: Record<string, string> = {}) {
   const store = new Map(Object.entries(seed));
   const kv = {
-    async get(key: string) {
-      return store.get(key) ?? null;
+    async get(key: string, type?: "text" | "json" | "arrayBuffer" | "stream") {
+      const value = store.get(key) ?? null;
+      if (value === null) return null;
+      if (type === "arrayBuffer") {
+        return new TextEncoder().encode(value).buffer;
+      }
+      if (type === "json") {
+        return JSON.parse(value);
+      }
+      return value;
     },
     async put(key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream) {
-      store.set(key, String(value));
+      if (typeof value === "string") {
+        store.set(key, value);
+      } else if (value instanceof ArrayBuffer) {
+        store.set(key, new TextDecoder().decode(value));
+      } else if (ArrayBuffer.isView(value)) {
+        store.set(key, new TextDecoder().decode(value));
+      } else {
+        store.set(key, String(value));
+      }
     },
     async delete(key: string) {
       store.delete(key);
@@ -790,8 +806,189 @@ describe("API router regression coverage", () => {
     const upload = AudioCommentaryUploadResponseSchema.parse(payload.upload);
     expect(response.status).toBe(200);
     expect(upload.status).toBe("intent-created");
+    expect(upload.storage).toBe("kv");
     expect(upload.max_bytes).toBe(AUDIO_COMMENTARY_MAX_BYTES);
-    expect(upload.r2_key).toMatch(/^audio-commentary\/upl_.+\.webm$/);
+    expect(upload.kv_key).toMatch(/^media_blob:upl_.+/);
+  });
+
+  it("stores audio commentary durably in KV when R2 is unavailable", async () => {
+    const sessionKv = createSessionKv();
+    const response = await handleRequest(
+      request("/api/uploads/audio-commentary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "audio/webm"
+        },
+        body: "audio-bytes"
+      }),
+      { ...env, SESSION_KV: sessionKv },
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    const upload = AudioCommentaryUploadResponseSchema.parse(payload.upload);
+    expect(response.status).toBe(200);
+    expect(upload.status).toBe("stored");
+    expect(upload.storage).toBe("kv");
+    expect(upload.byte_length).toBeGreaterThan(0);
+    expect(await sessionKv.get(`media_asset:${upload.asset_id}`)).toContain("\"status\":\"stored\"");
+  });
+
+  it("serves stored KV audio commentary bytes by asset id", async () => {
+    const sessionKv = createSessionKv();
+    const uploadResponse = await handleRequest(
+      request("/api/uploads/audio-commentary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "audio/webm"
+        },
+        body: "audio-bytes"
+      }),
+      { ...env, SESSION_KV: sessionKv },
+      { repository, jobs }
+    );
+    const upload = AudioCommentaryUploadResponseSchema.parse((await body(uploadResponse)).upload);
+
+    const response = await handleRequest(
+      request(`/api/uploads/audio-commentary/${upload.asset_id}`),
+      { ...env, SESSION_KV: sessionKv },
+      { repository, jobs }
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("audio/webm");
+    expect(await response.text()).toBe("audio-bytes");
+  });
+
+  it("rejects unsupported audio commentary content types", async () => {
+    const response = await handleRequest(
+      request("/api/uploads/audio-commentary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: "not-audio"
+      }),
+      { ...env, SESSION_KV: createSessionKv() },
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(415);
+    expect(payload.error.code).toBe("unsupported_audio_type");
+  });
+
+  it("rejects arbitrary audio asset ids before annotation publish", async () => {
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-unknown-audio-asset"
+        },
+        body: JSON.stringify({
+          clip: fixtures.annotations[0].clip,
+          commentary: {
+            kind: "audio",
+            text: "Unknown upload metadata should fail.",
+            audio_asset_id: "upl_missing"
+          },
+          visibility: "public",
+          client_context: { surface: "extension", capture_method: "media-timecode" }
+        })
+      }),
+      { ...env, SESSION_KV: createSessionKv() },
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(400);
+    expect(payload.error.code).toBe("audio_asset_not_found");
+  });
+
+  it("rejects unfinalized audio asset metadata before annotation publish", async () => {
+    const sessionKv = createSessionKv({
+      "media_asset:upl_incomplete": JSON.stringify({
+        id: "upl_incomplete",
+        asset_id: "upl_incomplete",
+        kind: "audio-commentary",
+        storage: "kv",
+        kv_key: "media_blob:upl_incomplete",
+        max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+        status: "stored"
+      })
+    });
+
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-unfinalized-audio-asset"
+        },
+        body: JSON.stringify({
+          clip: fixtures.annotations[0].clip,
+          commentary: {
+            kind: "audio",
+            text: "Incomplete upload metadata should fail.",
+            audio_asset_id: "upl_incomplete"
+          },
+          visibility: "public",
+          client_context: { surface: "extension", capture_method: "media-timecode" }
+        })
+      }),
+      { ...env, SESSION_KV: sessionKv },
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(400);
+    expect(payload.error.code).toBe("audio_asset_not_finalized");
+  });
+
+  it("publishes audio commentary after the uploaded asset is stored", async () => {
+    const sessionKv = createSessionKv();
+    const uploadResponse = await handleRequest(
+      request("/api/uploads/audio-commentary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "audio/webm"
+        },
+        body: "audio-bytes"
+      }),
+      { ...env, SESSION_KV: sessionKv },
+      { repository, jobs }
+    );
+    const upload = AudioCommentaryUploadResponseSchema.parse((await body(uploadResponse)).upload);
+
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-known-audio-asset"
+        },
+        body: JSON.stringify({
+          clip: fixtures.annotations[0].clip,
+          commentary: {
+            kind: "audio",
+            text: "Stored audio commentary.",
+            audio_asset_id: upload.asset_id
+          },
+          visibility: "public",
+          client_context: { surface: "extension", capture_method: "media-timecode" }
+        })
+      }),
+      { ...env, SESSION_KV: sessionKv },
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(201);
+    expect(payload.annotation.commentary).toMatchObject({
+      kind: "audio",
+      audio_asset_id: upload.asset_id
+    });
   });
 
   it("keeps owned-video uploads as intent-only until 240p processing is implemented", async () => {
