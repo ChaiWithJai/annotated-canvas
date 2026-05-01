@@ -12,6 +12,7 @@ This audit turns the book's principles into product guardrails for Annotated Can
 - Legal and infrastructure language should not leak into user screens.
 - Empty and error states should tell users how to recover.
 - Dense screens should scan as groups: source, clip, note, actions.
+- Reviewer docs should not make readers infer readiness from implementation detail. Use explicit buckets: working now, deployed but limited, blocked by credentials/secrets, and not yet implemented.
 
 ## Surface Audit
 
@@ -29,9 +30,11 @@ This audit turns the book's principles into product guardrails for Annotated Can
 | Extension capture | `Capture type`, `Timecode`, `Text`, and `Commentary` required domain knowledge. | Labels now say `What are you saving?`, `Time range`, `Selected text`, and `Your note`. |
 | Extension footer | `Connect accounts for sync` and `Publish to Canvas` were vague. | Footer now says `Signed out` and `Publish annotation`. |
 | Cloudflare setup docs | Docs still led with local Wrangler login despite the user's GitHub-first deployment preference. | Cloudflare docs now frame GitHub Actions as the production deploy control plane and Wrangler as local/resource/fallback tooling. |
+| Bounty submission docs | Readiness was split across issue comments and a long packet, making reviewers infer what was complete. | `docs/bounty-gap-audit.md` and `docs/submission-packet.md` now use explicit status buckets and issue-linked p50/p95 proof requirements. |
 
 ## Follow-Up Checks
 
 - Verify the extension copy in an unpacked Chrome side panel after browser auth is wired.
 - Revisit the claim modal when real moderation states exist.
 - Re-run a screen-reader pass after the source-pill label change.
+- Before external submission, read only the status bucket and acceptance tables first; if a reviewer cannot classify a requirement in under a few seconds, the packet needs another pass.
