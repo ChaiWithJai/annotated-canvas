@@ -54,7 +54,7 @@ function normalizeApiBase(value: string): string {
 }
 
 function floorNonNegative(value: number | undefined, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback;
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.max(0, Math.floor(value));
 }
 
