@@ -97,7 +97,7 @@ Auth and media gates are separate:
 - R2 bucket name, if enabled: `annotated-canvas-media`.
 - Worker binding to restore after storage exists: `MEDIA_BUCKET`.
 
-Do not install OAuth provider secrets until #24 has finalized the production secret names and token-exchange implementation. Do not restore the production R2 binding until R2 is enabled or an alternate storage path has been chosen.
+OAuth provider secret names are `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `X_CLIENT_ID`, and `X_CLIENT_SECRET`. Do not restore the production R2 binding until R2 is enabled or an alternate storage path has been chosen.
 
 Local OAuth is optional and mainly useful when an engineer wants an interactive fallback session:
 

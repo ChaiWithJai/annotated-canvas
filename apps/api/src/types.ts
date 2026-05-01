@@ -18,6 +18,37 @@ export interface QueueJob {
   created_at: string;
 }
 
+export type AuthProvider = "x" | "google";
+
+export interface OAuthProviderTokens {
+  access_token: string;
+  token_type?: string;
+  expires_in?: number;
+}
+
+export interface OAuthProviderProfile {
+  provider: AuthProvider;
+  provider_account_id: string;
+  handle?: string;
+  display_name: string;
+  avatar_url?: string;
+  bio?: string;
+}
+
+export interface OAuthTokenExchangeInput {
+  provider: AuthProvider;
+  code: string;
+  redirect_uri: string;
+  client_id: string;
+  client_secret: string;
+  code_verifier?: string;
+}
+
+export interface OAuthProviderClient {
+  exchangeCode(input: OAuthTokenExchangeInput): Promise<OAuthProviderTokens>;
+  fetchProfile(provider: AuthProvider, tokens: OAuthProviderTokens): Promise<OAuthProviderProfile>;
+}
+
 export interface Env {
   APP_ORIGIN?: string;
   SERVICE_MODE?: string;
