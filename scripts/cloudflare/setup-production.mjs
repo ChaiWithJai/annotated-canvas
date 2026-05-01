@@ -28,13 +28,13 @@ function log(message) {
 }
 
 function run(command, commandArgs, options = {}) {
-  const { allowFailure = false, mutate = false, input, redactedArgs } = options;
+  const { allowFailure = false, mutate = false, input, redactedArgs, env = {} } = options;
   log(`$ ${command} ${(redactedArgs ?? commandArgs).join(" ")}`);
   if (mutate && !shouldApply) return "";
 
   const result = spawnSync(command, commandArgs, {
     cwd: root,
-    env: process.env,
+    env: { ...process.env, ...env },
     input,
     encoding: "utf8",
     stdio: input ? ["pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"]
@@ -66,6 +66,10 @@ function parseJsonMaybe(output) {
 
 function parseUuid(output) {
   return output.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
+}
+
+function parseDeploymentUrl(output, suffix) {
+  return output.match(new RegExp(`https://[^\\s]+\\.${suffix.replaceAll(".", "\\.")}`, "g"))?.at(-1) ?? null;
 }
 
 function readProductionConfig() {
@@ -172,9 +176,20 @@ function configureGithub() {
 function deploy() {
   if (!shouldDeploy) return;
   run("npm", ["run", "cf:migrate:production"], { mutate: true });
-  wrangler(["deploy", "--config", "apps/api/wrangler.production.jsonc"], { mutate: true });
-  run("npm", ["run", "build:web"], { mutate: true });
-  wrangler(["pages", "deploy", "dist/web", "--project-name", names.pages, "--branch", "main"], { mutate: true });
+  const workerOutput = wrangler(["deploy", "--config", "apps/api/wrangler.production.jsonc"], { mutate: true });
+  const workerUrl = parseDeploymentUrl(workerOutput, "workers.dev");
+  if (!workerUrl && !process.env.VITE_API_BASE_URL) {
+    throw new Error("Could not parse Worker URL from deploy output. Set VITE_API_BASE_URL before deploying Pages.");
+  }
+  const buildEnv = workerUrl && !process.env.VITE_API_BASE_URL ? { VITE_API_BASE_URL: workerUrl } : {};
+  if (buildEnv.VITE_API_BASE_URL) log(`Building web client with VITE_API_BASE_URL=${buildEnv.VITE_API_BASE_URL}`);
+  run("npm", ["run", "build:web"], { mutate: true, env: buildEnv });
+  const pagesOutput = wrangler(["pages", "deploy", "dist/web", "--project-name", names.pages, "--branch", "main"], {
+    mutate: true
+  });
+  const pagesUrl = parseDeploymentUrl(pagesOutput, "pages.dev") ?? `https://${names.pages}.pages.dev`;
+  if (workerUrl) log(`Worker URL: ${workerUrl}`);
+  log(`Pages URL: ${pagesUrl}`);
 }
 
 function main() {

@@ -16,10 +16,12 @@ GitHub-first production setup:
 gh auth status
 export CLOUDFLARE_ACCOUNT_ID=...
 export CLOUDFLARE_API_TOKEN=...
+npm run cf:setup:production -- --apply --resources --pages
+git diff apps/api/wrangler.production.jsonc
 npm run cf:setup:production -- --apply --github
 ```
 
-Add `--pages` only when the Cloudflare Pages project should be created from this bootstrap script. If the Pages project is already connected to GitHub in Cloudflare, leave it out and keep the Worker deploy controlled by `.github/workflows/ci.yml`.
+Omit `--pages` when the Cloudflare Pages project already exists. If D1 and KV were created outside this script, update `apps/api/wrangler.production.jsonc` with those IDs before enabling the GitHub deploy gate.
 
 Local verification and fallback commands:
 
@@ -49,6 +51,8 @@ npm run cf:deploy:production
 
 Cloudflare production deploys should run from GitHub. GitHub Actions is the control plane for deploying `main`; Wrangler stays in the repo for local verification, resource discovery, migrations, and fallback deploys.
 
+Cloudflare also supports native Git integrations for Workers Builds and Pages. We can connect this repo in the Cloudflare dashboard later, but the first MVP deploy should still go through GitHub Actions because this repo needs one ordered gate for tests, remote D1 migrations, Worker deploy, web build with the deployed Worker URL, and Pages deploy.
+
 To wire the GitHub production environment and enable the deploy gate from the CLI, export a scoped Cloudflare account ID/token first:
 
 ```bash
@@ -65,7 +69,7 @@ Resource creation and production config patching still need Cloudflare API acces
 npm run cf:setup:production -- --apply --resources --pages
 ```
 
-Production deploys should normally happen by pushing or merging to `main` after the production config IDs, GitHub environment secrets, and deploy variable are present. Local deploy remains a fallback:
+Production deploys should normally happen by pushing or merging to `main` after the production config IDs, GitHub environment secrets, and deploy variable are present. The GitHub job deploys the Worker, builds the web client with `VITE_API_BASE_URL` set to the deployed Worker URL, and deploys `dist/web` to Cloudflare Pages. Local deploy remains a fallback and uses the same Worker URL handoff when Wrangler returns a `.workers.dev` URL:
 
 ```bash
 npm run cf:deploy:production
