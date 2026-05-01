@@ -1,6 +1,29 @@
 # Annotated Canvas MVP User Guide
 
-This guide explains how to run the MVP locally, load the Chrome extension as an unpacked extension, publish an annotation, view the public web surfaces, and file a claim.
+This guide explains how to review the live MVP, run it locally, load the Chrome
+extension as an unpacked extension, publish an annotation, view public surfaces,
+and file a claim.
+
+## Production Review URLs
+
+| Item | URL |
+| --- | --- |
+| Web app | `https://annotated-canvas.pages.dev` |
+| Reviewer home | `https://annotated-canvas.pages.dev/home` |
+| API base | `https://annotated-canvas-api.jaybhagat841.workers.dev` |
+| API health | `https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` |
+| Public feed | `https://annotated-canvas.pages.dev/` |
+| Stable smoke permalink | `https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` |
+| Extension selected-text proof | `https://annotated-canvas.pages.dev/a/ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6` |
+| Extension media-time proof | `https://annotated-canvas.pages.dev/a/ann_e537cae5-15f0-4dff-808b-219e134a801e` |
+| Public profile | `https://annotated-canvas.pages.dev/u/mira` |
+
+Current production behavior:
+
+- Deploy-from-main is green in GitHub Actions run `25216210247`.
+- The unpacked extension p95 smoke is merged in PR #43 and proves current-tab publish, selected text, media time ranges, over-90 no-network rejection, and public permalinks.
+- Google/X production auth fails closed until provider credentials are installed.
+- Recorded audio storage and owned-media 240p/sub-480p processing remain open; audio upload currently returns `intent-created`.
 
 ## Prerequisites
 
@@ -81,7 +104,7 @@ The extension side panel has four tabs:
 
 - `Capture`: capture a source-linked selected-text or timecode clip, add commentary, save a local draft, or publish.
 - `Drafts`: restore the most recent local smoke-test draft saved in Chrome extension storage.
-- `Published`: points reviewers to the API feed after publish.
+- `Published`: shows the last published annotation id, source, and permalink after publish.
 - `Settings`: switch the API base between localhost and the production Worker without source edits.
 
 The side panel reads the active tab when it can, falls back to the tab URL/title when a content script cannot answer, and publishes through the configured API when `Publish annotation` is clicked. The Settings tab defaults to `http://localhost:8787` and includes a `Production` preset for `https://annotated-canvas-api.jaybhagat841.workers.dev`.
@@ -101,9 +124,13 @@ There are two MVP paths.
 5. Add commentary.
 6. Optionally click `Save draft`; the latest local draft can be restored from `Drafts`.
 7. Click `Publish annotation`.
-8. The button changes from `Publishing...` to `Published`.
+8. Confirm the Published tab shows the returned annotation id and permalink.
 
-This posts to `POST /api/annotations` on the configured API base. For media clips, ranges longer than 90 seconds are blocked in the side panel before a network publish request is sent. For selected text, the context-menu path is `right-click selected text -> Annotate selected text`, then publish from the side panel.
+This posts to `POST /api/annotations` on the configured API base. For media
+clips, reversed, zero-length, and longer-than-90-second ranges are blocked in
+the side panel before a publish request is sent. For selected text, the
+context-menu path is `right-click selected text -> Annotate selected text`, then
+publish from the side panel.
 
 ### Publish Through the Local API
 
@@ -173,21 +200,23 @@ Text clipping uses the same endpoint with `kind: "text"`:
 
 ## View the Feed, Profile, and Permalink
 
-Start the web client with `npm run dev:web`.
+Production routes:
 
-The current web client is a local demo UI with fixture data and route-aware views:
+- Reviewer home: `https://annotated-canvas.pages.dev/home`
+- Feed: `https://annotated-canvas.pages.dev/`
+- Profile: `https://annotated-canvas.pages.dev/u/mira`
+- Stable smoke permalink: `https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`
+- Extension selected-text proof: `https://annotated-canvas.pages.dev/a/ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6`
+- Extension media-time proof: `https://annotated-canvas.pages.dev/a/ann_e537cae5-15f0-4dff-808b-219e134a801e`
+- Removed annotation state: `https://annotated-canvas.pages.dev/a/removed`
+
+Local routes after `npm run dev:web`:
 
 - Feed: `http://127.0.0.1:5173/`
 - Profile: `http://127.0.0.1:5173/u/mira`
 - Annotation permalink: `http://127.0.0.1:5173/a/ann_video_minimalism`
 - Removed annotation state: `http://127.0.0.1:5173/a/removed`
 - Empty feed state: `http://127.0.0.1:5173/empty`
-
-You can also use the header navigation in the app:
-
-- `Following` opens the feed.
-- `Profile` opens Mira's profile.
-- `Annotation` opens the annotation permalink.
 
 Backend equivalents:
 
@@ -196,6 +225,14 @@ curl http://localhost:8787/api/feed
 curl http://localhost:8787/api/users/mira
 curl http://localhost:8787/api/users/mira/annotations
 curl http://localhost:8787/api/annotations/ann_video_minimalism
+```
+
+Production smoke equivalents:
+
+```bash
+curl https://annotated-canvas-api.jaybhagat841.workers.dev/api/health
+curl https://annotated-canvas-api.jaybhagat841.workers.dev/api/annotations/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4
+curl https://annotated-canvas-api.jaybhagat841.workers.dev/api/feed
 ```
 
 ## File a Claim
@@ -212,7 +249,9 @@ curl http://localhost:8787/api/annotations/ann_video_minimalism
 4. Enter the reason.
 5. Click `Submit review request`.
 
-The current modal demonstrates the claim workflow in the browser. Use the API flow below when you need a local claim record.
+The claim workflow is review intake. It records a notice and does not
+automatically remove the annotation. Use the API flow below when you need a
+local claim record.
 
 ### File a Claim Through the Local API
 
@@ -234,9 +273,9 @@ curl -X POST http://localhost:8787/api/claims \
 
 The response returns `202 Accepted` with a `claim` object. The API also queues a `claim_notice` job when queue bindings are available.
 
-## Local Auth Behavior
+## Auth Behavior
 
-The MVP allows X and Google auth providers. Local development defaults to demo auth mode.
+Local development defaults to demo auth mode.
 
 ```bash
 curl "http://localhost:8787/api/auth/google/start?return_to=http://127.0.0.1:5173/"
@@ -249,10 +288,33 @@ Real OAuth requires `AUTH_MODE=oauth`, the `DB` and `SESSION_KV` bindings, and p
 
 Production remains intentionally fail-closed until the Google and X OAuth apps are created and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `X_CLIENT_ID`, and `X_CLIENT_SECRET` are installed as Worker secrets.
 
+## Demo-Video Checklist
+
+- [ ] Start on `https://annotated-canvas.pages.dev/home`.
+- [ ] Show feed, profile, stable smoke permalink, original source link, comments, engagement, and `File a claim`.
+- [ ] Show Google/X auth as fail-closed unless real provider credentials are installed.
+- [ ] Build/reload `dist/extension` in Chrome Developer Mode.
+- [ ] Save `https://annotated-canvas-api.jaybhagat841.workers.dev` in extension Settings.
+- [ ] Publish one <=90-second annotation from a real source tab and show the Published tab permalink.
+- [ ] Show selected-text proof: `ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6`.
+- [ ] Show media-time proof: `ann_e537cae5-15f0-4dff-808b-219e134a801e`.
+- [ ] Show invalid range blocking before network publish.
+- [ ] File a claim and show the annotation remains visible.
+- [ ] State the remaining OAuth, audio/R2, and owned-media 240p limitations.
+
+## Known Limitations
+
+- Chrome Web Store distribution is not part of the MVP; load `dist/extension` unpacked.
+- Real Google/X OAuth needs provider apps, secrets, callback configuration, and production smoke.
+- Recorded audio commentary is fallback-only until durable storage/finalize and playback/reference behavior are implemented.
+- Owned-media 240p/sub-480p processing remains a product/legal and implementation decision; third-party media is source-linked by reference.
+
 ## Troubleshooting
 
 - If Chrome says the extension is invalid, rebuild with `npm run build:extension` and load `dist/extension`, not `apps/extension`.
 - If the side panel does not update after code changes, rebuild and reload the extension from `chrome://extensions`.
 - If the web client cannot call the API, confirm the API is on `http://localhost:8787` and the web app is on `http://127.0.0.1:5173`; `APP_ORIGIN` in `apps/api/wrangler.jsonc` is set for that local origin.
+- If production publish uses the wrong backend, open extension Settings and save the Production preset.
 - If `POST /api/annotations` returns `428`, add an `Idempotency-Key` header with at least 8 characters.
 - If a claim returns `404`, create or use an existing annotation id first.
+- If Google/X sign-in reports missing provider config in production, that is expected until #24 credentials and smoke are complete.
