@@ -3,7 +3,9 @@
   "name": "annotated-canvas-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 0.1
@@ -17,20 +19,14 @@
     {
       "binding": "DB",
       "database_name": "annotated_canvas",
-      "database_id": "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID",
+      "database_id": "84bcbb47-3471-4a78-a99d-1f02c19bb2d9",
       "migrations_dir": "migrations/production"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "SESSION_KV",
-      "id": "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA_BUCKET",
-      "bucket_name": "annotated-canvas-media"
+      "id": "46ef271ad63242ea86c3a657f05fa556"
     }
   ],
   "queues": {
@@ -60,7 +56,9 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["EngagementCounter"]
+      "new_sqlite_classes": [
+        "EngagementCounter"
+      ]
     }
   ]
 }

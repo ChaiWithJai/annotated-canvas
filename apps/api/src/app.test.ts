@@ -24,7 +24,7 @@ describe("API router regression coverage", () => {
   let jobs: RecordingJobQueue;
 
   beforeEach(() => {
-    repository = new InMemoryRepository();
+    repository = new InMemoryRepository(undefined, env.APP_ORIGIN);
     jobs = new RecordingJobQueue();
   });
 
@@ -105,6 +105,7 @@ describe("API router regression coverage", () => {
     const payload = await body(response);
     expect(response.status).toBe(201);
     expect(payload.annotation.clip.kind).toBe("text");
+    expect(payload.annotation.permalink_url).toBe(`${env.APP_ORIGIN}/a/${payload.annotation.id}`);
     expect(jobs.jobs[0]).toMatchObject({ type: "feed_fanout", annotation_id: payload.annotation.id });
   });
 

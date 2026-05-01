@@ -9,7 +9,7 @@ import {
   createRequestId,
   toSourceDomain
 } from "@annotated/contracts";
-import { D1Repository, InMemoryRepository } from "./repository";
+import { D1Repository, InMemoryRepository, normalizeAppOrigin } from "./repository";
 import { CloudflareJobQueue } from "./queue";
 import type { Env, JobQueue, QueueJob, Repository } from "./types";
 
@@ -18,11 +18,21 @@ interface Services {
   jobs: JobQueue;
 }
 
-const defaultRepository = new InMemoryRepository();
+const defaultRepositories = new Map<string, InMemoryRepository>();
+
+function getDefaultRepository(appOrigin: string): InMemoryRepository {
+  const existing = defaultRepositories.get(appOrigin);
+  if (existing) return existing;
+
+  const repository = new InMemoryRepository(undefined, appOrigin);
+  defaultRepositories.set(appOrigin, repository);
+  return repository;
+}
 
 export function makeServices(env: Env): Services {
+  const appOrigin = normalizeAppOrigin(env.APP_ORIGIN);
   return {
-    repository: env.DB ? new D1Repository(env.DB) : defaultRepository,
+    repository: env.DB ? new D1Repository(env.DB, appOrigin) : getDefaultRepository(appOrigin),
     jobs: new CloudflareJobQueue(env)
   };
 }

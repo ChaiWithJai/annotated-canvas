@@ -8,16 +8,23 @@ Fill these in immediately before posting to `https://annotated.lovable.app`.
 
 | Item | Value |
 | --- | --- |
-| Public web URL | `TODO: https://...` |
-| Public API health URL | `TODO: https://.../api/health` |
-| Public feed URL | `TODO: https://.../` |
-| Public annotation permalink | `TODO: https://.../a/...` |
-| Public profile URL | `TODO: https://.../u/...` |
+| Public web URL | `https://annotated-canvas.pages.dev` |
+| Public API health URL | `https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` |
+| Public feed URL | `https://annotated-canvas.pages.dev/` |
+| Public annotation permalink | `https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` |
+| Public profile URL | `https://annotated-canvas.pages.dev/u/mira` |
 | Source repository | `https://github.com/ChaiWithJai/annotated-canvas` |
 | Local web URL | `http://127.0.0.1:5173` |
 | Local API URL | `http://localhost:8787` |
 | Local API health check | `http://localhost:8787/api/health` |
 | Chrome extension artifact | `dist/extension` after `npm run build:extension` |
+
+Public demo routes:
+
+- Feed: `https://annotated-canvas.pages.dev/`
+- Profile: `https://annotated-canvas.pages.dev/u/mira`
+- Annotation permalink: `https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0`
+- Removed annotation state: `https://annotated-canvas.pages.dev/a/removed`
 
 Local demo routes:
 
@@ -146,8 +153,8 @@ curl -X POST http://localhost:8787/api/claims \
 | Sidebar Chrome extension | MV3 side panel loaded from `dist/extension`; side panel opens on source pages. | Local Chrome proof recorded in #30; broader capture hardening remains in #23. |
 | Highlight and clip text/audio/video from any website | Current-tab context, selected text, and media time-range UI/API payloads. | Partial, tracked by #23 and #26. |
 | Add commentary and annotations | Text commentary publish path and API contract. | Partial, audio commentary tracked by #26. |
-| Landing page links back to original source | Annotation permalink includes source metadata and original source link. | Local proof exists; public URL blocked by #22. |
-| Public social feed | Feed route and API feed path. | Local proof exists; public URL blocked by #22. |
+| Landing page links back to original source | Annotation permalink includes source metadata and original source link. | Public permalink smoke proof exists. |
+| Public social feed | Feed route and API feed path. | Public Worker and Pages smoke proof exists. |
 | Users can follow and engage | Feed/profile engagement and comments work from the local MVP stream. | Comments work from closed #25; broader parity remains part of review proof. |
 | Account via X or Google | `/api/auth/google/start` and `/api/auth/x/start` demo mode; production OAuth plan. | Partial, real provider exchange blocked by #24 and external secrets. |
 | User can enter URL or use current page | Web URL flow and extension current-page capture surface. | Partial, tracked by #23 for regression-proof binding. |
@@ -155,10 +162,10 @@ curl -X POST http://localhost:8787/api/claims \
 | Max clip size 90 seconds | Contracts/API reject over-90-second media references. | Implemented locally. |
 | Downgrade clip to 240p or below 480p | Product decision: third-party media is source-linked by reference; owned uploads need processing policy. | Blocked by #26. |
 | Text or recorded audio commentary | Text commentary works; upload/commentary contract exists. | Audio recording/finalize blocked by #26. |
-| Users can leave comments | Comment resources and claim/feed docs reflect local completion. | Closed #25; include in final smoke proof. |
-| File a claim button | Claim button/modal and `POST /api/claims` notice intake. | Closed #27 locally; public proof blocked by #22. |
+| Users can leave comments | Comment resources and claim/feed docs reflect local completion. | Public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. |
+| File a claim button | Claim button/modal and `POST /api/claims` notice intake. | Public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. |
 | All content links to original source | `source_url` required for third-party clips. | Implemented for third-party contracts/API. |
-| Submit to annotated.lovable.app | Packet, URLs, demo script, and checklist. | This packet is ready; external submission waits on live URLs and final smoke proof. |
+| Submit to annotated.lovable.app | Packet, URLs, demo script, and checklist. | Packet has live URLs; external submission still needs final extension p95 proof and known-limitations disclosure. |
 
 ## Current Open GitHub Issues
 
@@ -186,29 +193,39 @@ Local Chrome evidence recorded in #30:
 - Current-page capture on `http://127.0.0.1:5173/` published into the local Worker API.
 - `GET /api/feed` returned `ann_e496763a-fb93-457b-a3f7-a6659d4f3e9d` with the expected active-tab source and commentary.
 
+Production smoke evidence recorded on May 1, 2026:
+
+- `GET https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` returned `200`.
+- `GET https://annotated-canvas.pages.dev/`, `/u/mira`, `/a/removed`, and `/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` returned `200`.
+- `POST /api/annotations` created `ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0`.
+- `GET /api/annotations/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` returns canonical `permalink_url: https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0`.
+- `POST /api/annotations/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0/comments` created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`.
+- `POST /api/claims` created `claim_36899790-f89f-4add-9744-046b5b46c3f3`, and `GET /api/annotations/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0` still returned `200`.
+- `POST /api/uploads/audio-commentary` returned `status: intent-created`, confirming the R2-disabled fallback path.
+
 ## Known Blockers Before External Submission
 
-- Public deployment is not live yet. #22 tracks Cloudflare resources, production IDs, migrations, and deploy smoke tests.
-- Public URL placeholders above must be replaced before posting to `annotated.lovable.app`.
+- Public deployment is live. #22 remains open for GitHub CI/CD secret wiring and final deploy-from-main proof.
 - Real Google/X OAuth needs provider client IDs/secrets, callback configuration, token exchange, and production-safe sessions. Tracked by #24.
 - Extension and web capture need final proof that user-entered text/time selections bind exactly to the publish payload. Tracked by #23.
 - Selected-text context menu, real media current-time capture, over-90-second browser validation, and audio commentary remain p95 extension proof gaps. Tracked by #30 and #26.
 - Audio commentary recording/finalize and 240p owned-media policy remain unresolved. Tracked by #26.
+- R2 is not enabled in the Cloudflare account yet. Production omits the R2 binding, so audio upload storage remains blocked by #26.
 - Chrome Web Store distribution is not part of the local MVP; reviewers load `dist/extension` unpacked.
 
 ## Final Submission Checklist
 
-- [ ] Public web URL is live and replaces the placeholder above.
-- [ ] Public API health URL returns OK and replaces the placeholder above.
-- [ ] Public feed, profile, permalink, removed state, and claim flow are smoke-tested.
-- [ ] Chrome extension builds with `npm run build:extension`.
-- [ ] Unpacked extension loads from `dist/extension` and side panel opens in Chrome.
+- [x] Public web URL is live and replaces the placeholder above.
+- [x] Public API health URL returns OK and replaces the placeholder above.
+- [x] Public feed, profile, permalink, removed state, and claim flow are smoke-tested.
+- [x] Chrome extension builds with `npm run build:extension`.
+- [x] Unpacked extension loads from `dist/extension` and side panel opens in Chrome.
 - [ ] Current-page capture publishes the exact selected text or media time range.
 - [ ] URL-input capture publishes with the original `source_url`.
-- [ ] Media duration over 90 seconds is rejected.
-- [ ] Every public annotation links back to its original source.
-- [ ] Comments and engagement are demonstrated on a public annotation.
-- [ ] `File a claim` records a notice and does not automatically remove content.
+- [x] Media duration over 90 seconds is rejected.
+- [x] Every public annotation links back to its original source.
+- [x] Comments and engagement are demonstrated on a public annotation.
+- [x] `File a claim` records a notice and does not automatically remove content.
 - [ ] Demo Google and X auth behavior is documented, or production OAuth is fully configured.
 - [ ] Known limitations are copied into the bounty submission without hiding bounty-critical gaps.
 - [ ] Submission is posted to `https://annotated.lovable.app`.

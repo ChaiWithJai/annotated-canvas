@@ -15,8 +15,22 @@ import {
 } from "@annotated/contracts";
 import type { Repository } from "./types";
 
+const DEFAULT_APP_ORIGIN = "https://annotated.example";
+
 function now(): string {
   return new Date().toISOString();
+}
+
+export function normalizeAppOrigin(appOrigin = DEFAULT_APP_ORIGIN): string {
+  try {
+    return new URL(appOrigin).origin;
+  } catch {
+    return DEFAULT_APP_ORIGIN;
+  }
+}
+
+function permalinkUrl(appOrigin: string, annotationId: string): string {
+  return `${appOrigin}/a/${annotationId}`;
 }
 
 function cloneAnnotation(annotation: AnnotationResource): AnnotationResource {
@@ -24,6 +38,7 @@ function cloneAnnotation(annotation: AnnotationResource): AnnotationResource {
 }
 
 export class InMemoryRepository implements Repository {
+  private readonly appOrigin: string;
   private annotations = new Map<string, AnnotationResource>();
   private claims = new Map<string, ClaimResource>();
   private claimEvents = new Map<string, ClaimEventResource>();
@@ -31,7 +46,8 @@ export class InMemoryRepository implements Repository {
   private idempotency = new Map<string, string>();
   private followedUserIds = new Set<string>(["usr_ren", "usr_ika"]);
 
-  constructor(seed: AnnotationResource[] = fixtures.annotations) {
+  constructor(seed: AnnotationResource[] = fixtures.annotations, appOrigin = DEFAULT_APP_ORIGIN) {
+    this.appOrigin = normalizeAppOrigin(appOrigin);
     for (const annotation of seed) {
       this.annotations.set(annotation.id, cloneAnnotation(annotation));
     }
@@ -95,7 +111,7 @@ export class InMemoryRepository implements Repository {
       visibility: input.visibility,
       created_at: timestamp,
       updated_at: timestamp,
-      permalink_url: `https://annotated.example/a/${id}`,
+      permalink_url: permalinkUrl(this.appOrigin, id),
       engagement: {
         likes: 0,
         reposts: 0,
@@ -347,7 +363,7 @@ function clipFromRow(row: D1Row): ClipRef {
   };
 }
 
-function annotationFromRow(row: D1Row): AnnotationResource {
+function annotationFromRow(row: D1Row, appOrigin: string): AnnotationResource {
   return {
     id: row.annotation_id,
     author_id: row.author_id,
@@ -373,7 +389,7 @@ function annotationFromRow(row: D1Row): AnnotationResource {
     visibility: row.visibility,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    permalink_url: `https://annotated.example/a/${row.annotation_id}`,
+    permalink_url: permalinkUrl(appOrigin, row.annotation_id),
     engagement: {
       likes: row.likes,
       reposts: row.reposts,
@@ -430,19 +446,22 @@ function claimEventFromRow(row: ClaimEventRow): ClaimEventResource {
 
 export class D1Repository implements Repository {
   private readonly viewerId = fixtures.currentUser.id;
+  private readonly appOrigin: string;
 
-  constructor(private readonly db: D1Database) {}
+  constructor(private readonly db: D1Database, appOrigin = DEFAULT_APP_ORIGIN) {
+    this.appOrigin = normalizeAppOrigin(appOrigin);
+  }
 
   async listFeed(): Promise<AnnotationResource[]> {
     const result = await this.db
       .prepare(`${annotationSelectSql()} WHERE a.visibility = 'public' GROUP BY a.id ORDER BY a.created_at DESC`)
       .all<D1Row>();
-    return result.results.map(annotationFromRow);
+    return result.results.map((row) => annotationFromRow(row, this.appOrigin));
   }
 
   async findAnnotation(id: string): Promise<AnnotationResource | null> {
     const row = await this.db.prepare(`${annotationSelectSql()} WHERE a.id = ? GROUP BY a.id`).bind(id).first<D1Row>();
-    return row ? annotationFromRow(row) : null;
+    return row ? annotationFromRow(row, this.appOrigin) : null;
   }
 
   async findUserByHandle(handle: string): Promise<UserResource | null> {
@@ -472,7 +491,7 @@ export class D1Repository implements Repository {
       .prepare(`${annotationSelectSql()} WHERE u.handle = ? AND a.visibility = 'public' GROUP BY a.id ORDER BY a.created_at DESC`)
       .bind(handle)
       .all<D1Row>();
-    return result.results.map(annotationFromRow);
+    return result.results.map((row) => annotationFromRow(row, this.appOrigin));
   }
 
   async publishAnnotation(input: AnnotationCreate, idempotencyKey: string): Promise<AnnotationResource> {

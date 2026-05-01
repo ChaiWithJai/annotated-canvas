@@ -252,13 +252,17 @@ Post-deploy smoke gate:
 - File a claim and verify content is not automatically removed.
 - Enqueue a duplicate background job and verify no duplicate side effects.
 
-## Current Blockers Before First Production Deploy
+## Current Production Status And Remaining Blockers
 
-- `apps/api/wrangler.production.jsonc` needs production `database_id` and KV namespace `id` values.
-- Production Cloudflare resources must be created in the target account and the generated IDs committed.
-- Cloudflare Pages project `annotated-canvas` must exist before the GitHub deploy job runs, or be created with `npm run cf:setup:production -- --apply --resources --pages`.
+- `apps/api/wrangler.production.jsonc` has production D1 and KV IDs for the `Jaybhagat841@gmail.com's Account` Cloudflare account.
+- Production D1, KV, Queues, Worker, and Pages resources exist.
+- Cloudflare Pages project `annotated-canvas` exists and has a first deployment.
+- Public Worker URL: `https://annotated-canvas-api.jaybhagat841.workers.dev`.
+- Public Pages URL: `https://annotated-canvas.pages.dev`.
+- Production smoke on May 1, 2026 verified health, feed, profile, permalink, canonical API permalink URLs, removed state, comment creation, claim notice creation, and the audio upload fallback path.
 - GitHub `production` environment secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` must be set.
 - Repository variable `CLOUDFLARE_DEPLOY_ENABLED` must be set to `true` after the production config is ready.
-- `APP_ORIGIN`, `SERVICE_MODE`, and `AUTH_MODE` have production-safe values in `apps/api/wrangler.production.jsonc`, but the final origin must be updated after the public web hostname is chosen.
+- `APP_ORIGIN`, `SERVICE_MODE`, and `AUTH_MODE` have production-safe values in `apps/api/wrangler.production.jsonc`.
 - Preview/staging environments are not yet configured in Wrangler.
 - Remote migration execution uses `apps/api/migrations/production`, so `0002_seed_demo.sql` is not part of production deployment.
+- R2 is not enabled for the Cloudflare account yet. Production deploy omits the `MEDIA_BUCKET` binding, so audio commentary returns an upload intent instead of storing audio until #26 enables R2 or another storage path.

@@ -10,8 +10,8 @@ const args = new Set(process.argv.slice(2));
 const shouldApply = args.has("--apply");
 const shouldDeploy = args.has("--deploy");
 const shouldConfigureGithub = args.has("--github");
-const shouldCreatePages = args.has("--pages");
-const shouldProvisionResources = args.has("--resources") || (!shouldConfigureGithub && shouldApply);
+const shouldCreatePagesProject = args.has("--pages") && !shouldDeploy;
+const shouldProvisionResources = args.has("--resources") || (!shouldConfigureGithub && shouldApply && !shouldDeploy);
 const githubEnvironment = process.env.CLOUDFLARE_GITHUB_ENVIRONMENT ?? "production";
 
 const names = {
@@ -68,6 +68,10 @@ function parseUuid(output) {
   return output.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
 }
 
+function parseJsonId(output) {
+  return output.match(/"id"\s*:\s*"([^"]+)"/)?.[1] ?? null;
+}
+
 function parseDeploymentUrl(output, suffix) {
   return output.match(new RegExp(`https://[^\\s]+\\.${suffix.replaceAll(".", "\\.")}`, "g"))?.at(-1) ?? null;
 }
@@ -117,14 +121,14 @@ function ensureKv() {
   if (existing?.id) return existing.id;
 
   const createOutput = wrangler(["kv", "namespace", "create", names.kv], { mutate: true });
-  return parseUuid(createOutput) ?? createOutput.match(/id\\s*=\\s*\"([^\"]+)\"/)?.[1] ?? null;
+  return parseJsonId(createOutput) ?? createOutput.match(/id\\s*=\\s*\"([^\"]+)\"/)?.[1] ?? null;
 }
 
 function ensureBestEffortResources() {
   wrangler(["r2", "bucket", "create", names.r2, "--location", "enam"], { allowFailure: true, mutate: true });
   wrangler(["queues", "create", names.queue], { allowFailure: true, mutate: true });
   wrangler(["queues", "create", names.dlq], { allowFailure: true, mutate: true });
-  if (shouldCreatePages) {
+  if (shouldCreatePagesProject) {
     wrangler(["pages", "project", "create", names.pages, "--production-branch", "main"], {
       allowFailure: true,
       mutate: true
@@ -206,7 +210,7 @@ function main() {
 
   if (shouldConfigureGithub) {
     configureGithub();
-    if (!shouldProvisionResources && !shouldCreatePages && !shouldDeploy) {
+    if (!shouldProvisionResources && !shouldCreatePagesProject && !shouldDeploy) {
       log("GitHub deployment wiring complete. No local Wrangler auth needed for this step.");
       return;
     }
@@ -217,7 +221,7 @@ function main() {
     log("Dry run complete after auth check. Re-run with --apply to create resources and patch production config.");
     return;
   }
-  if (shouldProvisionResources || shouldCreatePages || shouldDeploy) {
+  if (shouldProvisionResources || shouldCreatePagesProject) {
     const d1Id = ensureD1();
     const kvId = ensureKv();
     ensureBestEffortResources();

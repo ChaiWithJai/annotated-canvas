@@ -75,6 +75,8 @@ Production deploys should normally happen by pushing or merging to `main` after 
 npm run cf:deploy:production
 ```
 
+The first production setup created D1 `84bcbb47-3471-4a78-a99d-1f02c19bb2d9`, KV `46ef271ad63242ea86c3a657f05fa556`, Queues `annotated-canvas-jobs` and `annotated-canvas-dlq`, Worker `annotated-canvas-api`, and Pages project `annotated-canvas`. The live URLs are `https://annotated-canvas-api.jaybhagat841.workers.dev` and `https://annotated-canvas.pages.dev`. R2 returned Cloudflare API code `10042` because R2 is not enabled for the account; production omits the R2 binding until the audio-commentary storage issue is completed.
+
 Local OAuth is optional and mainly useful when an engineer wants an interactive fallback session:
 
 ```bash
