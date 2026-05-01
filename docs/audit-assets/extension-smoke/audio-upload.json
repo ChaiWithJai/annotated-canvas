@@ -1,0 +1,11 @@
+{
+  "upload": {
+    "id": "upl_e6c48d90-c5fd-4df0-8968-f10a3f69840e",
+    "asset_id": "upl_e6c48d90-c5fd-4df0-8968-f10a3f69840e",
+    "kind": "audio-commentary",
+    "storage": "r2",
+    "r2_key": "audio-commentary/upl_e6c48d90-c5fd-4df0-8968-f10a3f69840e.webm",
+    "max_bytes": 26214400,
+    "status": "intent-created"
+  }
+}
