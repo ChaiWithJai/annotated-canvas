@@ -99,6 +99,8 @@ describe("Annotated web shell", () => {
     expect(screen.getByRole("heading", { name: /save the exact moment/i })).toBeInTheDocument();
     expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
     expect(screen.getByText("View public feed")).toBeInTheDocument();
+    expect(screen.getByText("Extension install guide")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /see the feed, load the extension/i })).toBeInTheDocument();
   });
 
   it("checks signed-out session state with credentials on load", async () => {
@@ -150,6 +152,8 @@ describe("Annotated web shell", () => {
       });
     });
     expect(screen.getByRole("alert")).toHaveTextContent(/google sign-in is not configured/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/load the unpacked extension/i);
+    expect(screen.getByText("Install extension")).toBeInTheDocument();
   });
 
   it("starts X auth through fetch and follows the returned authorization URL", async () => {
