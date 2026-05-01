@@ -1,0 +1,40 @@
+{
+  "annotation": {
+    "id": "ann_5d8bc8a1-a98c-4916-8422-c990b3e29924",
+    "author_id": "usr_demo",
+    "author": {
+      "id": "usr_demo",
+      "handle": "mira",
+      "display_name": "Mira Chen",
+      "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+      "bio": "Researcher collecting precise media moments."
+    },
+    "clip": {
+      "kind": "video",
+      "source": {
+        "source_url": "https://example.com/",
+        "source_domain": "example.com",
+        "title": "Example Domain"
+      },
+      "media": {
+        "start_seconds": 263,
+        "end_seconds": 310,
+        "duration_seconds": 47
+      }
+    },
+    "commentary": {
+      "kind": "text",
+      "text": "Extension production smoke 2026-05-01: side panel captured example.com and published through the Cloudflare Worker with a source link."
+    },
+    "visibility": "public",
+    "created_at": "2026-05-01T13:03:09.625Z",
+    "updated_at": "2026-05-01T13:03:09.625Z",
+    "permalink_url": "https://annotated-canvas.pages.dev/a/ann_5d8bc8a1-a98c-4916-8422-c990b3e29924",
+    "engagement": {
+      "likes": 0,
+      "reposts": 0,
+      "discussions": 0,
+      "viewer_has_liked": false
+    }
+  }
+}
