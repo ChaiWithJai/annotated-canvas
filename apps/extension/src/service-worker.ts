@@ -9,12 +9,13 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId !== "annotated-capture-selection" || !tab?.id) return;
+  const selectionText = info.selectionText?.trim();
+  if (info.menuItemId !== "annotated-capture-selection" || !tab?.id || !selectionText) return;
 
   chrome.storage.local.set({
     pendingCapture: {
       capture_method: "selection",
-      selection_text: info.selectionText,
+      selection_text: selectionText,
       source_url: tab.url,
       title: tab.title,
       tab_id: String(tab.id)

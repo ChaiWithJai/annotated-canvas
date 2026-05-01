@@ -192,9 +192,59 @@ body {
   font-size: 12px;
 }
 
+.draft-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.draft-actions .ac-button {
+  min-height: 36px;
+}
+
+.draft-actions span {
+  color: var(--ac-muted);
+  font-size: 12px;
+}
+
 .empty-pane {
   padding: 28px 20px;
   color: var(--ac-muted);
+}
+
+.draft-pane {
+  padding: 22px 20px;
+  color: var(--ac-muted);
+}
+
+.draft-card {
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.draft-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.draft-card strong {
+  color: var(--ac-text);
+  font-size: 14px;
+}
+
+.draft-card span,
+.draft-card p {
+  margin: 0;
+  color: var(--ac-muted);
+  font-size: 12px;
+}
+
+.draft-card .ac-button {
+  justify-self: start;
 }
 
 .settings-pane {
@@ -219,6 +269,21 @@ body {
   padding: 0 10px;
   color: var(--ac-text);
   background: var(--ac-surface);
+}
+
+.preset-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.preset-row button {
+  min-height: 34px;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  color: var(--ac-muted);
+  cursor: pointer;
 }
 
 .settings-pane p,
@@ -250,9 +315,9 @@ body {
 }
 
 .sync-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
   gap: 8px;
   color: var(--ac-muted);
   font-size: 12px;
