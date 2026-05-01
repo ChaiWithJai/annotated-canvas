@@ -110,6 +110,14 @@ CREATE TABLE IF NOT EXISTS queue_idempotency_keys (
   processed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+CREATE TABLE IF NOT EXISTS mutation_idempotency_keys (
+  scope TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  resource_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  PRIMARY KEY (scope, idempotency_key)
+);
+
 CREATE INDEX IF NOT EXISTS idx_annotations_created_at ON annotations(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_annotations_author ON annotations(author_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_claims_annotation ON claims(annotation_id, created_at DESC);

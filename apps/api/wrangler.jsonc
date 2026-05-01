@@ -10,7 +10,8 @@
   },
   "vars": {
     "APP_ORIGIN": "http://localhost:5173",
-    "SERVICE_MODE": "in-process"
+    "SERVICE_MODE": "in-process",
+    "AUTH_MODE": "demo"
   },
   "d1_databases": [
     {

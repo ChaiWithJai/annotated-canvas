@@ -4,8 +4,13 @@ import { describe, expect, it } from "vitest";
 import { App } from "./App";
 
 describe("Annotated web shell", () => {
+  function renderAt(pathname: string) {
+    window.history.pushState(null, "", pathname);
+    return render(<App />);
+  }
+
   it("renders the p50 feed with source attribution visible", () => {
-    render(<App />);
+    renderAt("/");
 
     expect(screen.getByRole("heading", { name: "Following feed" })).toBeInTheDocument();
     expect(screen.getAllByText("youtube.com")[0]).toBeInTheDocument();
@@ -14,11 +19,38 @@ describe("Annotated web shell", () => {
 
   it("keeps the p95 claim workflow explicit as a notice flow", async () => {
     const user = userEvent.setup();
-    render(<App />);
+    renderAt("/");
 
     await user.click(screen.getAllByText("File a claim")[0]);
 
     expect(screen.getByRole("dialog", { name: "File a claim" })).toBeInTheDocument();
     expect(screen.getByText(/does not decide fair use automatically/i)).toBeInTheDocument();
+  });
+
+  it("renders p95 empty feed and removed permalink states", () => {
+    const { unmount } = renderAt("/empty");
+    expect(screen.getByText("No annotations yet.")).toBeInTheDocument();
+    unmount();
+
+    renderAt("/a/removed");
+    expect(screen.getByText(/has been removed by the author/i)).toBeInTheDocument();
+    expect(screen.getByText("youtube.com")).toBeInTheDocument();
+  });
+
+  it("renders profile follow state changes", async () => {
+    const user = userEvent.setup();
+    renderAt("/u/mira");
+
+    await user.click(screen.getByRole("button", { name: /follow/i }));
+
+    expect(screen.getByRole("button", { name: /following/i })).toBeInTheDocument();
+  });
+
+  it("renders the marketing signup view with feed preview", () => {
+    renderAt("/home");
+
+    expect(screen.getByRole("heading", { name: /annotate the exact moment/i })).toBeInTheDocument();
+    expect(screen.getByText("Sign up with Google")).toBeInTheDocument();
+    expect(screen.getByText("View public feed")).toBeInTheDocument();
   });
 });

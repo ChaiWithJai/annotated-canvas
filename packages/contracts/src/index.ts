@@ -133,6 +133,20 @@ export const FeedResponseSchema = z.object({
   next_cursor: z.string().nullable()
 });
 
+export const UserResourceSchema = z.object({
+  id: z.string().min(1),
+  handle: z.string().min(1),
+  display_name: z.string().min(1),
+  avatar_url: z.string().url().optional(),
+  bio: z.string().optional(),
+  viewer_is_following: z.boolean().default(false),
+  stats: z.object({
+    followers: z.number().int().nonnegative(),
+    following: z.number().int().nonnegative(),
+    annotations: z.number().int().nonnegative()
+  })
+});
+
 export const ClaimCreateSchema = z.object({
   annotation_id: z.string().min(1),
   claimant_name: z.string().min(1).max(200),
@@ -154,6 +168,21 @@ export const EngagementCreateSchema = z.object({
   body: z.string().max(2000).optional()
 });
 
+export const AuthProviderSchema = z.enum(["x", "google"]);
+
+export const AuthStartResponseSchema = z.object({
+  provider: AuthProviderSchema,
+  mode: z.enum(["oauth", "demo"]),
+  authorization_url: z.string().url(),
+  state: z.string().min(1)
+});
+
+export const ExtensionTokenResponseSchema = z.object({
+  token: z.string().min(1),
+  expires_in: z.number().int().positive(),
+  token_type: z.literal("Bearer")
+});
+
 export const ErrorEnvelopeSchema = z.object({
   error: z.object({
     code: z.string().min(1),
@@ -171,6 +200,7 @@ export type ClaimCreate = z.infer<typeof ClaimCreateSchema>;
 export type ClaimResource = z.infer<typeof ClaimResourceSchema>;
 export type EngagementCreate = z.infer<typeof EngagementCreateSchema>;
 export type FeedResponse = z.infer<typeof FeedResponseSchema>;
+export type UserResource = z.infer<typeof UserResourceSchema>;
 
 export const fixtures = {
   currentUser: {

@@ -1,7 +1,13 @@
 import { SourceRefSchema, toSourceDomain } from "@annotated/contracts";
 import { Button, SourcePill } from "@annotated/ui";
 import { Clock, FileText, Layers, Scissors, Send, Settings, UserCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  publishAnnotation,
+  readActiveTabContext,
+  readPendingCapture,
+  type PageCaptureContext
+} from "./api";
 
 type CaptureMode = "context" | "drafts" | "annotations" | "settings";
 
@@ -12,21 +18,43 @@ export function SidePanel() {
   const [commentary, setCommentary] = useState("");
   const [captureKind, setCaptureKind] = useState<"video" | "text">("video");
   const [status, setStatus] = useState<"idle" | "publishing" | "published">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [pageContext, setPageContext] = useState<PageCaptureContext | null>(null);
 
   const source = useMemo(
     () =>
       SourceRefSchema.parse({
-        source_url: fallbackUrl,
-        source_domain: toSourceDomain(fallbackUrl),
-        title: "Minimalist Design Theory: A Comprehensive Guide",
-        favicon_url: "https://www.youtube.com/s/desktop/28b0985e/img/favicon_32x32.png"
+        source_url: pageContext?.source_url ?? fallbackUrl,
+        source_domain: toSourceDomain(pageContext?.source_url ?? fallbackUrl),
+        title: pageContext?.title || "Minimalist Design Theory: A Comprehensive Guide",
+        favicon_url:
+          pageContext?.source_url && pageContext.source_url !== fallbackUrl
+            ? undefined
+            : "https://www.youtube.com/s/desktop/28b0985e/img/favicon_32x32.png"
       }),
-    []
+    [pageContext]
   );
 
-  function publish() {
+  useEffect(() => {
+    void Promise.all([readPendingCapture(), readActiveTabContext()]).then(([pending, active]) => {
+      const nextContext = pending ?? active;
+      if (nextContext) {
+        setPageContext(nextContext);
+        if (nextContext.selection_text) setCaptureKind("text");
+      }
+    });
+  }, []);
+
+  async function publish() {
     setStatus("publishing");
-    window.setTimeout(() => setStatus("published"), 600);
+    setError(null);
+    try {
+      await publishAnnotation(pageContext ?? {}, commentary, captureKind);
+      setStatus("published");
+    } catch {
+      setStatus("idle");
+      setError("Could not publish. Confirm the local API is running on port 8787.");
+    }
   }
 
   return (
@@ -99,8 +127,8 @@ export function SidePanel() {
             </div>
           ) : (
             <blockquote className="selection-preview">
-              A quiet interface is not an empty interface. It is an interface where every visible thing
-              has earned its place.
+              {pageContext?.selection_text ||
+                "A quiet interface is not an empty interface. It is an interface where every visible thing has earned its place."}
             </blockquote>
           )}
 
@@ -120,6 +148,7 @@ export function SidePanel() {
       )}
 
       <footer className="sidepanel-footer">
+        {error ? <p className="sidepanel-error">{error}</p> : null}
         <div className="sync-row">
           <span>Connect accounts for sync:</span>
           <UserCircle size={16} aria-hidden="true" />

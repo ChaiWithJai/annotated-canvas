@@ -36,6 +36,53 @@ describe("API router regression coverage", () => {
     expect((await body(feed)).items).toHaveLength(3);
   });
 
+  it("serves p50 auth start, callback, and extension-token routes", async () => {
+    const start = await handleRequest(request("/api/auth/google/start?return_to=/"), env, { repository, jobs });
+    const startPayload = await body(start);
+
+    expect(start.status).toBe(200);
+    expect(startPayload.provider).toBe("google");
+    expect(startPayload.mode).toBe("demo");
+
+    const callback = await handleRequest(
+      request(`/api/auth/google/callback?state=${startPayload.state}&code=demo&return_to=/`),
+      env,
+      { repository, jobs }
+    );
+    expect(callback.status).toBe(302);
+    expect(callback.headers.get("Set-Cookie")).toContain("annotated_session=");
+
+    const token = await handleRequest(
+      request("/api/auth/extension-token", {
+        method: "POST"
+      }),
+      env,
+      { repository, jobs }
+    );
+    expect((await body(token)).token_type).toBe("Bearer");
+  });
+
+  it("serves p50 user profile, annotations, and follow contract routes", async () => {
+    const profile = await body(await handleRequest(request("/api/users/ren"), env, { repository, jobs }));
+    expect(profile.user.handle).toBe("ren");
+
+    const annotations = await body(
+      await handleRequest(request("/api/users/ren/annotations"), env, { repository, jobs })
+    );
+    expect(annotations.items[0].author.handle).toBe("ren");
+
+    const followed = await body(
+      await handleRequest(
+        request("/api/follows/usr_ren", {
+          method: "PUT"
+        }),
+        env,
+        { repository, jobs }
+      )
+    );
+    expect(followed.user.viewer_is_following).toBe(true);
+  });
+
   it("publishes a p50 text annotation and enqueues feed fanout", async () => {
     const response = await handleRequest(
       request("/api/annotations", {

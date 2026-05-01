@@ -70,6 +70,94 @@
   gap: 22px;
 }
 
+.marketing-view {
+  display: grid;
+  gap: 22px;
+}
+
+.marketing-view > h2 {
+  margin: 0;
+  font-size: 42px;
+  line-height: 1.08;
+}
+
+.marketing-view > p {
+  margin: 0;
+  color: var(--ac-muted);
+  font-size: 17px;
+}
+
+.marketing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.marketing-actions a,
+.marketing-actions button {
+  min-height: 40px;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  color: var(--ac-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.marketing-actions .marketing-button--primary {
+  background: var(--ac-primary);
+  color: #fff;
+  border-color: var(--ac-primary);
+}
+
+.marketing-preview {
+  margin-top: 8px;
+}
+
+.empty-state,
+.removed-state {
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  padding: 28px;
+}
+
+.empty-state h2,
+.empty-state p,
+.removed-state h2 {
+  margin: 0;
+}
+
+.empty-state p {
+  margin-top: 8px;
+  color: var(--ac-muted);
+}
+
+.removed-state {
+  display: grid;
+  gap: 18px;
+}
+
+.removed-state button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: var(--ac-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.removed-state button:hover {
+  color: var(--ac-danger);
+}
+
 .permalink-view {
   display: grid;
   gap: 26px;
@@ -226,6 +314,12 @@
   min-height: 110px;
   padding: 10px;
   resize: vertical;
+}
+
+.claim-status {
+  margin: 12px 0 0;
+  color: var(--ac-success);
+  font-size: 13px;
 }
 
 .claim-modal select {

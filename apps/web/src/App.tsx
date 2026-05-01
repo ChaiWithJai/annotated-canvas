@@ -1,27 +1,83 @@
-import { fixtures, type AnnotationResource } from "@annotated/contracts";
+import { fixtures, type AnnotationResource, type UserResource } from "@annotated/contracts";
 import { AnnotationCard, Button, ClipReference, ShellHeader, SourcePill } from "@annotated/ui";
 import { Bell, Check, Flag, LogIn, Send, UserPlus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { API_BASE, loadAnnotation, loadFeed, loadProfile, loadProfileAnnotations, submitClaim } from "./api";
 
-type View = "feed" | "profile" | "annotation";
+type View = "home" | "feed" | "profile" | "annotation" | "empty" | "removed" | "signup";
+
+function clipSource(clip: AnnotationResource["clip"]) {
+  return "source" in clip ? clip.source : undefined;
+}
+
+function viewFromPath(pathname: string): View {
+  if (pathname === "/home") return "home";
+  if (pathname === "/signup") return "signup";
+  if (pathname === "/u/mira") return "profile";
+  if (pathname === "/a/removed") return "removed";
+  if (pathname.startsWith("/a/")) return "annotation";
+  if (pathname === "/empty") return "empty";
+  return "feed";
+}
 
 export function App() {
-  const [view, setView] = useState<View>("feed");
+  const [view, setView] = useState<View>(() => viewFromPath(window.location.pathname));
   const [claimTarget, setClaimTarget] = useState<AnnotationResource | null>(null);
-  const featured = fixtures.annotations[0];
-  const profileItems = fixtures.annotations.filter((item) => item.author.handle === "mira");
+  const [claimReason, setClaimReason] = useState("I want this annotation reviewed for attribution and usage boundaries.");
+  const [claimStatus, setClaimStatus] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [feedItems, setFeedItems] = useState<AnnotationResource[]>(fixtures.annotations);
+  const [featured, setFeatured] = useState<AnnotationResource>(fixtures.annotations[0]);
+  const [profile, setProfile] = useState<UserResource>({
+    ...fixtures.currentUser,
+    viewer_is_following: false,
+    stats: { followers: 128, following: 64, annotations: 1 }
+  });
+  const [profileItems, setProfileItems] = useState<AnnotationResource[]>(
+    fixtures.annotations.filter((item) => item.author.handle === "mira")
+  );
 
   const viewTitle = useMemo(() => {
+    if (view === "home") return "Annotated Canvas";
     if (view === "feed") return "Following";
     if (view === "profile") return "Mira's Canvas";
+    if (view === "signup") return "Sign up";
+    if (view === "empty") return "No annotations";
+    if (view === "removed") return "Removed";
     return "Annotation";
   }, [view]);
+  const featuredSource = clipSource(featured.clip);
+
+  useEffect(() => {
+    if (view === "feed") {
+      void loadFeed().then(setFeedItems);
+    }
+    if (view === "annotation") {
+      const id = window.location.pathname.split("/").pop() || "ann_video_minimalism";
+      void loadAnnotation(id).then((annotation) => {
+        if (annotation) setFeatured(annotation);
+      });
+    }
+    if (view === "profile") {
+      void loadProfile("mira").then((nextProfile) => {
+        setProfile(nextProfile);
+        setIsFollowing(nextProfile.viewer_is_following);
+      });
+      void loadProfileAnnotations("mira").then(setProfileItems);
+    }
+  }, [view]);
+
+  function navigate(nextView: "feed" | "profile" | "annotation") {
+    const path = nextView === "feed" ? "/" : nextView === "profile" ? "/u/mira" : "/a/ann_video_minimalism";
+    window.history.pushState(null, "", path);
+    setView(nextView);
+  }
 
   return (
     <>
       <ShellHeader
         active={view}
-        onNavigate={setView}
+        onNavigate={navigate}
         actions={
           <Button tone="secondary">
             <LogIn size={16} aria-hidden="true" />
@@ -53,7 +109,37 @@ export function App() {
           </dl>
         </aside>
 
-        {view === "feed" ? (
+        {view === "home" || view === "signup" ? (
+          <section className="marketing-view">
+            <p className="eyebrow">Source-linked commentary</p>
+            <h2>Annotate the exact moment, keep the source intact.</h2>
+            <p>
+              Capture text selections and media timecodes, add commentary, and publish public
+              annotations that send readers back to the original source.
+            </p>
+            <div className="marketing-actions">
+              <a
+                className="marketing-button marketing-button--primary"
+                href={`${API_BASE}/api/auth/google/start?return_to=/`}
+              >
+                Sign up with Google
+              </a>
+              <a className="marketing-button" href={`${API_BASE}/api/auth/x/start?return_to=/`}>
+                Sign up with X
+              </a>
+              <button type="button" onClick={() => navigate("feed")}>
+                View public feed
+              </button>
+            </div>
+            <div className="feed-list marketing-preview">
+              {feedItems.slice(0, 2).map((annotation) => (
+                <AnnotationCard key={annotation.id} annotation={annotation} compact onClaim={setClaimTarget} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {view === "feed" || view === "empty" ? (
           <section className="feed-view" aria-label="Global feed">
             <div className="feed-toolbar">
               <div>
@@ -65,56 +151,78 @@ export function App() {
                 New annotation
               </Button>
             </div>
-            <div className="feed-list">
-              {fixtures.annotations.map((annotation) => (
-                <AnnotationCard
-                  key={annotation.id}
-                  annotation={annotation}
-                  onClaim={setClaimTarget}
-                />
-              ))}
-            </div>
+            {view === "empty" ? (
+              <div className="empty-state">
+                <h2>No annotations yet.</h2>
+                <p>Start following curators or clip your first source-linked moment.</p>
+              </div>
+            ) : (
+              <div className="feed-list">
+                {feedItems.map((annotation) => (
+                  <AnnotationCard
+                    key={annotation.id}
+                    annotation={annotation}
+                    onClaim={setClaimTarget}
+                  />
+                ))}
+              </div>
+            )}
           </section>
         ) : null}
 
-        {view === "annotation" ? (
+        {view === "annotation" || view === "removed" ? (
           <article className="permalink-view">
-            <p className="eyebrow">Public permalink</p>
-            <h2>
-              {featured.commentary.kind === "text" ? featured.commentary.text : "Audio commentary"}
-            </h2>
-            <ClipReference clip={featured.clip} />
-            <footer className="permalink-meta">
-              <div>
-                <img alt="" src={featured.author.avatar_url} />
-                <div>
-                  <strong>{featured.author.display_name}</strong>
-                  <span>@{featured.author.handle} · May 1, 2026</span>
-                </div>
+            {view === "removed" ? (
+              <div className="removed-state">
+                <p className="eyebrow">Public permalink</p>
+                <h2>This annotation has been removed by the author or via moderation claim.</h2>
+                {featuredSource ? <SourcePill source={featuredSource} /> : null}
+                <button type="button" onClick={() => setClaimTarget(featured)}>
+                  <Flag size={14} aria-hidden="true" />
+                  File a claim
+                </button>
               </div>
-              {"source" in featured.clip ? <SourcePill source={featured.clip.source} /> : null}
-              <button type="button" onClick={() => setClaimTarget(featured)}>
-                <Flag size={14} aria-hidden="true" />
-                File a claim
-              </button>
-            </footer>
+            ) : (
+              <>
+                <p className="eyebrow">Public permalink</p>
+                <h2>
+                  {featured.commentary.kind === "text" ? featured.commentary.text : "Audio commentary"}
+                </h2>
+                <ClipReference clip={featured.clip} />
+                <footer className="permalink-meta">
+                  <div>
+                    <img alt="" src={featured.author.avatar_url} />
+                    <div>
+                      <strong>{featured.author.display_name}</strong>
+                      <span>@{featured.author.handle} · May 1, 2026</span>
+                    </div>
+                  </div>
+                  {featuredSource ? <SourcePill source={featuredSource} /> : null}
+                  <button type="button" onClick={() => setClaimTarget(featured)}>
+                    <Flag size={14} aria-hidden="true" />
+                    File a claim
+                  </button>
+                </footer>
+              </>
+            )}
           </article>
         ) : null}
 
         {view === "profile" ? (
           <section className="profile-view">
             <aside className="profile-panel">
-              <img alt="" src={fixtures.currentUser.avatar_url} />
-              <h2>{fixtures.currentUser.display_name}</h2>
-              <p>@{fixtures.currentUser.handle}</p>
-              <p>{fixtures.currentUser.bio}</p>
-              <Button tone="primary">
+              <img alt="" src={profile.avatar_url} />
+              <h2>{profile.display_name}</h2>
+              <p>@{profile.handle}</p>
+              <p>{profile.bio}</p>
+              <Button tone={isFollowing ? "secondary" : "primary"} onClick={() => setIsFollowing(!isFollowing)}>
                 <UserPlus size={16} aria-hidden="true" />
-                Follow
+                {isFollowing ? "Following" : "Follow"}
               </Button>
               <div className="profile-stats">
-                <span>128 followers</span>
-                <span>64 following</span>
+                <span>{profile.stats.followers} followers</span>
+                <span>{profile.stats.following} following</span>
+                <span>{profile.stats.annotations} annotations</span>
               </div>
             </aside>
             <div className="profile-list">
@@ -178,12 +286,23 @@ export function App() {
             </label>
             <label>
               Reason
-              <textarea defaultValue="I want this annotation reviewed for attribution and usage boundaries." />
+              <textarea value={claimReason} onChange={(event) => setClaimReason(event.target.value)} />
             </label>
-            <Button tone="danger">
+            <Button
+              tone="danger"
+              onClick={async () => {
+                try {
+                  const claimId = await submitClaim(claimTarget.id, claimReason);
+                  setClaimStatus(`Claim received: ${claimId}`);
+                } catch {
+                  setClaimStatus("Claim saved locally for demo review.");
+                }
+              }}
+            >
               <Flag size={16} aria-hidden="true" />
               Submit notice
             </Button>
+            {claimStatus ? <p className="claim-status">{claimStatus}</p> : null}
           </section>
         </div>
       ) : null}
