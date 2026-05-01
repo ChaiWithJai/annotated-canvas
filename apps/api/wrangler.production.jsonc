@@ -1,0 +1,66 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "annotated-canvas-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "vars": {
+    "APP_ORIGIN": "https://annotated-canvas.pages.dev",
+    "SERVICE_MODE": "production",
+    "AUTH_MODE": "oauth"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "annotated_canvas",
+      "database_id": "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID",
+      "migrations_dir": "migrations/production"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION_KV",
+      "id": "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "annotated-canvas-media"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS",
+        "queue": "annotated-canvas-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "annotated-canvas-jobs",
+        "max_batch_size": 10,
+        "max_retries": 3,
+        "dead_letter_queue": "annotated-canvas-dlq"
+      }
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ENGAGEMENT_COUNTERS",
+        "class_name": "EngagementCounter"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["EngagementCounter"]
+    }
+  ]
+}
