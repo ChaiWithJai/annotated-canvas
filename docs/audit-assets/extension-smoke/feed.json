@@ -1,0 +1,119 @@
+{
+  "items": [
+    {
+      "id": "ann_5d8bc8a1-a98c-4916-8422-c990b3e29924",
+      "author_id": "usr_demo",
+      "author": {
+        "id": "usr_demo",
+        "handle": "mira",
+        "display_name": "Mira Chen",
+        "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+        "bio": "Researcher collecting precise media moments."
+      },
+      "clip": {
+        "kind": "video",
+        "source": {
+          "source_url": "https://example.com/",
+          "source_domain": "example.com",
+          "title": "Example Domain"
+        },
+        "media": {
+          "start_seconds": 263,
+          "end_seconds": 310,
+          "duration_seconds": 47
+        }
+      },
+      "commentary": {
+        "kind": "text",
+        "text": "Extension production smoke 2026-05-01: side panel captured example.com and published through the Cloudflare Worker with a source link."
+      },
+      "visibility": "public",
+      "created_at": "2026-05-01T13:03:09.625Z",
+      "updated_at": "2026-05-01T13:03:09.625Z",
+      "permalink_url": "https://annotated-canvas.pages.dev/a/ann_5d8bc8a1-a98c-4916-8422-c990b3e29924",
+      "engagement": {
+        "likes": 0,
+        "reposts": 0,
+        "discussions": 0,
+        "viewer_has_liked": false
+      }
+    },
+    {
+      "id": "ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4",
+      "author_id": "usr_demo",
+      "author": {
+        "id": "usr_demo",
+        "handle": "mira",
+        "display_name": "Mira Chen",
+        "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+        "bio": "Researcher collecting precise media moments."
+      },
+      "clip": {
+        "kind": "video",
+        "source": {
+          "source_url": "https://annotated-canvas.pages.dev/home",
+          "source_domain": "annotated-canvas.pages.dev",
+          "title": "Annotated Canvas production bounty smoke"
+        },
+        "media": {
+          "start_seconds": 12,
+          "end_seconds": 72,
+          "duration_seconds": 60
+        }
+      },
+      "commentary": {
+        "kind": "text",
+        "text": "Approved bounty smoke: public extension-style annotation with source link, commentary, and a 60-second clip inside the 90-second limit."
+      },
+      "visibility": "public",
+      "created_at": "2026-05-01T11:06:36.170Z",
+      "updated_at": "2026-05-01T11:06:36.170Z",
+      "permalink_url": "https://annotated-canvas.pages.dev/a/ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4",
+      "engagement": {
+        "likes": 0,
+        "reposts": 0,
+        "discussions": 0,
+        "viewer_has_liked": false
+      }
+    },
+    {
+      "id": "ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0",
+      "author_id": "usr_demo",
+      "author": {
+        "id": "usr_demo",
+        "handle": "mira",
+        "display_name": "Mira Chen",
+        "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+        "bio": "Researcher collecting precise media moments."
+      },
+      "clip": {
+        "kind": "video",
+        "source": {
+          "source_url": "https://example.com/bounty-production-smoke",
+          "source_domain": "example.com",
+          "title": "Bounty production smoke"
+        },
+        "media": {
+          "start_seconds": 10,
+          "end_seconds": 70,
+          "duration_seconds": 60
+        }
+      },
+      "commentary": {
+        "kind": "text",
+        "text": "Production smoke publish from the Cloudflare Worker deploy."
+      },
+      "visibility": "public",
+      "created_at": "2026-05-01T03:13:54.465Z",
+      "updated_at": "2026-05-01T03:13:54.465Z",
+      "permalink_url": "https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0",
+      "engagement": {
+        "likes": 0,
+        "reposts": 0,
+        "discussions": 1,
+        "viewer_has_liked": false
+      }
+    }
+  ],
+  "next_cursor": null
+}
