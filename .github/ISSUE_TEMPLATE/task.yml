@@ -1,0 +1,47 @@
+name: Task
+description: Implementation or design task with learning-loop fields
+title: "[Task]: "
+labels: ["type:task", "learning-log"]
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Learning Objective
+      description: What should a contributor be able to demonstrate after closing this?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Product context, linked docs, and prerequisites.
+    validations:
+      required: true
+  - type: textarea
+    id: pitfalls
+    attributes:
+      label: Misconceptions and Pitfalls
+      description: Known traps, constraints, and assumptions to test.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Evidence needed before closing the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: transfer
+    attributes:
+      label: Transfer
+      description: How this work will be reused by another stream.
+    validations:
+      required: false
+  - type: textarea
+    id: learning_log
+    attributes:
+      label: Roadblocks and Learning Log
+      description: Update as work progresses with roadblocks, decisions, and evidence.
+    validations:
+      required: false

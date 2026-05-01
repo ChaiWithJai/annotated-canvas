@@ -1,0 +1,26 @@
+name: Epic
+description: Parent epic for grouped task issues
+title: "[Epic]: "
+labels: ["type:epic", "learning-log"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What product capability should exist when this epic closes?
+    validations:
+      required: true
+  - type: textarea
+    id: learning_design
+    attributes:
+      label: Learning Design
+      description: Objectives, prerequisites, misconceptions, assessment, and transfer.
+    validations:
+      required: true
+  - type: textarea
+    id: child_issues
+    attributes:
+      label: Child Issues
+      description: Add linked task issues here.
+    validations:
+      required: false

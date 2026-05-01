@@ -1,0 +1,57 @@
+@jason reposted
+This Week in Startups
+@twistartups
+J-Cal is offering a $5K bounty to whoever can execute his idea for annotated .com! Think you have what it takes? 🧵
+
+@Jason
+3:18 PM · Apr 30, 2026
+·
+37.7K
+ Views
+Relevant
+View quotes
+
+This Week in Startups
+@twistartups
+·
+5h
+Here's the concept:
+
+Annotated is a sidebar Chrome extension that allows users to highlight and quickly clip media (text, audio, or video) from any website, then add their own commentary and "annotations."
+This Week in Startups
+@twistartups
+·
+5h
+These annotations are saved on a landing page that links back to the original source, and shared on a public-facing social media feed. Users can follow one another and engage with each others' annotations..
+This Week in Startups
+@twistartups
+·
+5h
+Requirements:
+
+Must have a sidebar chrome extension.
+
+Must have a “File a claim” button to dispute fair use breaches.
+
+All content must link back to its original source.
+This Week in Startups
+@twistartups
+·
+5h
+The user journey:
+The user is prompted to create an account via X or Google.
+
+Users can put in a url, or the app will use whatever page they’re already on. (YouTube videos, news articles, or podcasts)
+
+The user is prompted for where they want the clip to start / end or which section of the text to take.
+
+The clip or article gets pulled and made into a landing page. (max clip size 90 seconds, downgrade it to 240 pixels (< 480p))
+
+The user writes a commentary (text or recorded audio) where they can share their thoughts on the content.
+
+Users can look through a social feed of other people’s annotations, leaving comments
+This Week in Startups
+@twistartups
+·
+5h
+Post your submissions to https://annotated.lovable.app !
