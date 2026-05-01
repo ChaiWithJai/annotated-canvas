@@ -1,0 +1,70 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "annotated-canvas-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "APP_ORIGIN": "http://localhost:5173",
+    "SERVICE_MODE": "in-process"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "annotated_canvas"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION_KV"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "annotated-canvas-media"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS",
+        "queue": "annotated-canvas-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "annotated-canvas-jobs",
+        "max_batch_size": 10,
+        "max_retries": 3,
+        "dead_letter_queue": "annotated-canvas-dlq"
+      }
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ENGAGEMENT_COUNTERS",
+        "class_name": "EngagementCounter"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["EngagementCounter"]
+    }
+  ],
+  // When service Workers are split out, keep this public router stable and add bindings here:
+  // "services": [
+  //   { "binding": "AUTH_SERVICE", "service": "annotated-auth" },
+  //   { "binding": "ANNOTATION_SERVICE", "service": "annotated-annotation" },
+  //   { "binding": "FEED_SERVICE", "service": "annotated-feed" },
+  //   { "binding": "CLAIMS_SERVICE", "service": "annotated-claims" },
+  //   { "binding": "MEDIA_SERVICE", "service": "annotated-media" }
+  // ]
+}

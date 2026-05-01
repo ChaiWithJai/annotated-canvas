@@ -1,0 +1,327 @@
+:root {
+  --ac-primary: #4338ca;
+  --ac-primary-hover: #3730a3;
+  --ac-background: #fcfcfc;
+  --ac-surface: #ffffff;
+  --ac-text: #171717;
+  --ac-muted: #737373;
+  --ac-border: #e5e5e5;
+  --ac-border-strong: #a3a3a3;
+  --ac-danger: #ef4444;
+  --ac-danger-soft: #fee2e2;
+  --ac-success: #166534;
+  --ac-warning: #92400e;
+  --ac-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ac-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --ac-radius: 2px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ac-background);
+  color: var(--ac-text);
+  font-family: var(--ac-font);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.ac-button {
+  min-height: 38px;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  color: var(--ac-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.ac-button:hover {
+  border-color: var(--ac-border-strong);
+}
+
+.ac-button--primary {
+  background: var(--ac-primary);
+  border-color: var(--ac-primary);
+  color: #fff;
+}
+
+.ac-button--primary:hover {
+  background: var(--ac-primary-hover);
+}
+
+.ac-button--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.ac-button--danger {
+  border-color: var(--ac-danger-soft);
+  color: var(--ac-danger);
+}
+
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  max-width: 100%;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  padding: 2px 7px;
+  color: var(--ac-muted);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.source-pill:hover {
+  color: var(--ac-text);
+  border-color: var(--ac-border-strong);
+}
+
+.source-pill img {
+  width: 14px;
+  height: 14px;
+}
+
+.clip-reference {
+  border-top: 1px solid var(--ac-border);
+  border-bottom: 1px solid var(--ac-border);
+  background: #fafafa;
+  padding: 16px 0;
+}
+
+.clip-reference__header {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 0 16px;
+}
+
+.clip-reference__header > svg {
+  margin-top: 3px;
+  color: var(--ac-primary);
+}
+
+.clip-reference__header p {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.clip-reference__quote {
+  margin: 16px 16px 0;
+  border-left: 2px solid var(--ac-primary);
+  padding: 2px 0 2px 14px;
+  color: #262626;
+  font-size: 15px;
+}
+
+.clip-reference__media {
+  margin: 18px 16px 0;
+}
+
+.clip-reference__timeline {
+  position: relative;
+  height: 6px;
+  background: #e7e5e4;
+  border-radius: var(--ac-radius);
+  overflow: hidden;
+}
+
+.clip-reference__timeline span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--ac-primary);
+}
+
+.clip-reference__timecodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--ac-muted);
+  font-family: var(--ac-mono);
+  font-size: 12px;
+}
+
+.clip-reference__upload {
+  margin: 16px 16px 0;
+  color: var(--ac-muted);
+  font-size: 13px;
+}
+
+.annotation-card {
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  overflow: hidden;
+}
+
+.annotation-card:hover {
+  border-color: var(--ac-border-strong);
+}
+
+.annotation-card__header {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 16px;
+}
+
+.annotation-card__header img {
+  width: 38px;
+  height: 38px;
+  object-fit: cover;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+}
+
+.annotation-card__header p,
+.annotation-card__header span {
+  margin: 0;
+  font-size: 13px;
+}
+
+.annotation-card__header p {
+  font-weight: 700;
+}
+
+.annotation-card__header span,
+.annotation-card__header time {
+  color: var(--ac-muted);
+  font-size: 12px;
+}
+
+.annotation-card__commentary {
+  margin: 0;
+  padding: 18px 16px 16px;
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.annotation-card__footer {
+  border-top: 1px solid var(--ac-border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: var(--ac-muted);
+  font-size: 13px;
+}
+
+.annotation-card__footer span,
+.annotation-card__claim {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.annotation-card__claim {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--ac-muted);
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+.annotation-card__claim:hover {
+  color: var(--ac-danger);
+}
+
+.annotation-card--compact .annotation-card__commentary {
+  font-size: 15px;
+}
+
+.shell-header {
+  height: 64px;
+  border-bottom: 1px solid var(--ac-border);
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 0 28px;
+  background: rgba(252, 252, 252, 0.96);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.shell-header__brand,
+.shell-header nav button {
+  border: 0;
+  background: transparent;
+  color: var(--ac-muted);
+  cursor: pointer;
+}
+
+.shell-header__brand {
+  justify-self: start;
+  color: var(--ac-text);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.shell-header nav {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.shell-header nav button {
+  min-width: 84px;
+  min-height: 34px;
+  border-radius: var(--ac-radius);
+}
+
+.shell-header nav button:hover,
+.shell-header nav button.is-active {
+  color: var(--ac-text);
+  background: #f5f5f5;
+}
+
+.shell-header__actions {
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  .shell-header {
+    height: auto;
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    padding: 14px;
+  }
+
+  .shell-header__brand,
+  .shell-header__actions {
+    justify-self: start;
+  }
+
+  .shell-header nav {
+    overflow-x: auto;
+  }
+}

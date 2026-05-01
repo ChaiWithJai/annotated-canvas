@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Annotated Canvas">
+  <rect width="64" height="64" rx="6" fill="#FCFCFC"/>
+  <rect x="8" y="8" width="48" height="48" rx="3" fill="#FFFFFF" stroke="#171717" stroke-width="2"/>
+  <path d="M18 22h28M18 32h20M18 42h16" stroke="#4338CA" stroke-width="4" stroke-linecap="square"/>
+  <path d="M45 35l5 5-9 3 4-8z" fill="#171717"/>
+</svg>

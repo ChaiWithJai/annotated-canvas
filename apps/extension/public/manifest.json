@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Annotated Canvas",
+  "version": "0.1.0",
+  "description": "Clip exact web media moments and publish source-linked commentary.",
+  "minimum_chrome_version": "116",
+  "permissions": ["sidePanel", "scripting", "storage", "tabs", "contextMenus", "identity"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Open Annotated Canvas"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

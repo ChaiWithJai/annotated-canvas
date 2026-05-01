@@ -25,9 +25,29 @@ The product is based on the `Annotated` bounty context captured in this reposito
 - `design-inpso.md` contains the visual/product direction.
 - `mocks.md` contains a UI and API mockup.
 - `bounty.txt` contains the source bounty thread text captured locally.
+- `apps/web` contains the React web client scaffold.
+- `apps/extension` contains the Chrome MV3 side-panel scaffold.
+- `apps/api` contains the Cloudflare Worker API/router scaffold.
+- `packages/contracts` contains executable Zod contracts and fixtures.
+- `packages/ui` contains shared UI components and design tokens.
 - `docs/api-contracts.md` defines the first REST contract draft.
 - `docs/cloudflare-architecture.md` defines the first system architecture draft.
+- `docs/cloudflare-cli.md` defines Cloudflare CLI setup and resource commands.
+- `docs/testing-strategy.md` defines the testing trophy strategy with P50/P95 coverage.
 - `docs/issue-learning-loop.md` defines how issues should document learning, pitfalls, and roadblocks.
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+npm run dev:api
+npm run build
+npm test
+```
+
+The Chrome extension build is emitted to `dist/extension` and can be loaded unpacked in Chrome.
+Use Node 24 for local development; the repo includes `.nvmrc` because the system Node 25 path can force native dependencies onto source builds.
 
 ## First Delivery Streams
 

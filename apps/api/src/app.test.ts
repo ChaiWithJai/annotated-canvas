@@ -1,0 +1,171 @@
+// @vitest-environment node
+import { fixtures } from "@annotated/contracts";
+import { beforeEach, describe, expect, it } from "vitest";
+import { handleRequest } from "./app";
+import { InMemoryRepository } from "./repository";
+import { RecordingJobQueue } from "./queue";
+import type { Env } from "./types";
+
+const env: Env = {
+  APP_ORIGIN: "http://localhost:5173",
+  SERVICE_MODE: "test"
+};
+
+function request(path: string, init: RequestInit = {}) {
+  return new Request(`https://api.annotated.test${path}`, init);
+}
+
+async function body(response: Response) {
+  return response.json() as Promise<Record<string, any>>;
+}
+
+describe("API router regression coverage", () => {
+  let repository: InMemoryRepository;
+  let jobs: RecordingJobQueue;
+
+  beforeEach(() => {
+    repository = new InMemoryRepository();
+    jobs = new RecordingJobQueue();
+  });
+
+  it("serves p50 health and feed routes", async () => {
+    const health = await handleRequest(request("/api/health"), env, { repository, jobs });
+    const feed = await handleRequest(request("/api/feed"), env, { repository, jobs });
+
+    expect(health.status).toBe(200);
+    expect((await body(feed)).items).toHaveLength(3);
+  });
+
+  it("publishes a p50 text annotation and enqueues feed fanout", async () => {
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-1"
+        },
+        body: JSON.stringify({
+          clip: fixtures.annotations[1].clip,
+          commentary: { kind: "text", text: "This quote carries the product principle." },
+          visibility: "public",
+          client_context: { surface: "web", capture_method: "selection" }
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(201);
+    expect(payload.annotation.clip.kind).toBe("text");
+    expect(jobs.jobs[0]).toMatchObject({ type: "feed_fanout", annotation_id: payload.annotation.id });
+  });
+
+  it("keeps p95 publish retries idempotent", async () => {
+    const init: RequestInit = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": "publish-key-retry"
+      },
+      body: JSON.stringify({
+        clip: fixtures.annotations[0].clip,
+        commentary: { kind: "text", text: "Retry-safe publish." },
+        visibility: "public",
+        client_context: { surface: "extension", capture_method: "media-timecode" }
+      })
+    };
+
+    const first = await body(await handleRequest(request("/api/annotations", init), env, { repository, jobs }));
+    const second = await body(await handleRequest(request("/api/annotations", init), env, { repository, jobs }));
+
+    expect(second.annotation.id).toBe(first.annotation.id);
+  });
+
+  it("rejects p95 annotations missing source attribution", async () => {
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-missing-source"
+        },
+        body: JSON.stringify({
+          clip: { kind: "text", text: { quote: "orphan quote" } },
+          commentary: { kind: "text", text: "Should fail." },
+          visibility: "public",
+          client_context: { surface: "web", capture_method: "selection" }
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(400);
+    expect(payload.error.code).toBe("invalid_annotation");
+  });
+
+  it("rejects p95 media clips above the 90 second cap", async () => {
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-long-video"
+        },
+        body: JSON.stringify({
+          clip: {
+            kind: "video",
+            source: fixtures.sources.youtube,
+            media: {
+              start_seconds: 0,
+              end_seconds: 180,
+              duration_seconds: 180
+            }
+          },
+          commentary: { kind: "text", text: "Too long." },
+          visibility: "public",
+          client_context: { surface: "extension", capture_method: "media-timecode" }
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it("treats p95 claim filing as notice intake without removing content", async () => {
+    const response = await handleRequest(
+      request("/api/claims", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "claim-key-1"
+        },
+        body: JSON.stringify({
+          annotation_id: "ann_video_minimalism",
+          claimant_name: "Rights Holder",
+          claimant_email: "rights@example.com",
+          relationship: "copyright-owner",
+          reason:
+            "I own this source and want the annotation reviewed for attribution and fair-use boundaries.",
+          requested_action: "review"
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    const claim = await body(response);
+    const annotation = await body(
+      await handleRequest(request("/api/annotations/ann_video_minimalism"), env, { repository, jobs })
+    );
+
+    expect(response.status).toBe(202);
+    expect(claim.claim.status).toBe("open");
+    expect(annotation.annotation.id).toBe("ann_video_minimalism");
+    expect(jobs.jobs[0]).toMatchObject({ type: "claim_notice", claim_id: claim.claim.id });
+  });
+});

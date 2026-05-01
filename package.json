@@ -1,0 +1,56 @@
+{
+  "name": "annotated-canvas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "vite --config apps/web/vite.config.ts --host 127.0.0.1",
+    "dev:web": "vite --config apps/web/vite.config.ts --host 127.0.0.1",
+    "dev:api": "wrangler dev --config apps/api/wrangler.jsonc --local --port 8787",
+    "build": "npm run build:contracts && npm run build:web && npm run build:extension",
+    "build:contracts": "tsc -p packages/contracts/tsconfig.json",
+    "build:web": "vite build --config apps/web/vite.config.ts",
+    "build:extension": "vite build --config apps/extension/vite.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:api": "vitest run apps/api",
+    "test:contracts": "vitest run packages/contracts",
+    "test:workers": "vitest run --config vitest.cloudflare.config.ts",
+    "typecheck": "tsc -p tsconfig.check.json --noEmit",
+    "cf:dev": "wrangler dev --config apps/api/wrangler.jsonc --local --port 8787",
+    "cf:whoami": "wrangler whoami",
+    "cf:types": "wrangler types --config apps/api/wrangler.jsonc",
+    "cf:migrate:local": "wrangler d1 migrations apply annotated_canvas --local --config apps/api/wrangler.jsonc",
+    "cf:migrate:remote": "wrangler d1 migrations apply annotated_canvas --remote --config apps/api/wrangler.jsonc",
+    "cf:queues:create": "wrangler queues create annotated-canvas-jobs && wrangler queues create annotated-canvas-dlq"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "lucide-react": "^1.14.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zod": "^4.4.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.15.2",
+    "@cloudflare/workers-types": "^4.20260430.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/chrome": "^0.1.40",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^29.1.1",
+    "node-addon-api": "^8.7.0",
+    "node-gyp": "^12.3.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5",
+    "wrangler": "^4.87.0"
+  }
+}
