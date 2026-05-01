@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fixtures, type AnnotationResource } from "@annotated/contracts";
 import {
   PRODUCTION_API_BASE,
   publishAnnotation,
@@ -8,6 +9,18 @@ import {
   saveApiBase,
   saveCaptureDraft
 } from "./api";
+
+function annotationResponse(id: string): Response {
+  const annotation: AnnotationResource = {
+    ...fixtures.annotations[0],
+    id,
+    permalink_url: `https://annotated.example/a/${id}`
+  };
+  return new Response(JSON.stringify({ annotation }), {
+    status: 201,
+    headers: { "Content-Type": "application/json" }
+  });
+}
 
 function stubChromeStorage(initialValues: Record<string, unknown> = {}) {
   const storage = new Map<string, unknown>(Object.entries(initialValues));
@@ -34,12 +47,7 @@ describe("extension publish API", () => {
   });
 
   it("publishes the exact p50 time range entered in the side panel", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ annotation: { id: "ann_test" } }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" }
-      })
-    );
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(annotationResponse("ann_test"));
 
     await publishAnnotation({
       context: {
@@ -64,6 +72,31 @@ describe("extension publish API", () => {
     });
   });
 
+  it("returns the published annotation id and permalink for browser smoke evidence", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(annotationResponse("ann_smoke"));
+
+    await expect(
+      publishAnnotation({
+        context: {
+          source_url: "https://example.com/video",
+          title: "Example video",
+          media: { current_time: 12, kind: "video" }
+        },
+        commentary: "Expose the publish result for smoke proof.",
+        captureKind: "video",
+        range: {
+          start_seconds: 12,
+          end_seconds: 70
+        }
+      })
+    ).resolves.toMatchObject({
+      annotation: {
+        id: "ann_smoke",
+        permalink_url: "https://annotated.example/a/ann_smoke"
+      }
+    });
+  });
+
   it("rejects p95 time ranges above the 90 second bounty cap before fetch", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
@@ -81,6 +114,27 @@ describe("extension publish API", () => {
         }
       })
     ).rejects.toThrow();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects reversed p95 media ranges before fetch instead of mutating the entered end time", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(
+      publishAnnotation({
+        context: {
+          source_url: "https://example.com/video",
+          title: "Example video"
+        },
+        commentary: "This should not publish.",
+        captureKind: "video",
+        range: {
+          start_seconds: 70,
+          end_seconds: 12
+        }
+      })
+    ).rejects.toThrow("invalid_range");
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -109,12 +163,7 @@ describe("extension publish API", () => {
   });
 
   it("publishes exact p95 selected text from the context-menu capture path", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ annotation: { id: "ann_text" } }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" }
-      })
-    );
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(annotationResponse("ann_text"));
 
     await publishAnnotation({
       context: {
@@ -149,12 +198,7 @@ describe("extension publish API", () => {
           headers: { "Content-Type": "application/json" }
         })
       )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ annotation: { id: "ann_audio" } }), {
-          status: 201,
-          headers: { "Content-Type": "application/json" }
-        })
-      );
+      .mockResolvedValueOnce(annotationResponse("ann_audio"));
 
     await publishAnnotation({
       context: {
@@ -182,12 +226,7 @@ describe("extension publish API", () => {
 
   it("uses the stored API base so review builds can target production without source edits", async () => {
     stubChromeStorage();
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ annotation: { id: "ann_test" } }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" }
-      })
-    );
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(annotationResponse("ann_test"));
 
     await saveApiBase(`${PRODUCTION_API_BASE}/`);
     expect(await readApiBase()).toBe(PRODUCTION_API_BASE);
