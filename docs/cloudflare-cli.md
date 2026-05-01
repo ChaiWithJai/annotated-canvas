@@ -136,6 +136,7 @@ Auth and media gates are separate:
 
 - Google callback URL: `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/google/callback`.
 - X callback URL: `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/x/callback`.
+- OAuth Worker bindings: `DB` and `SESSION_KV`; `AUTH_MODE=oauth` returns `503 auth_not_configured` when either binding is missing.
 - R2 bucket name, if enabled: `annotated-canvas-media`.
 - Worker binding to restore after storage exists: `MEDIA_BUCKET`.
 
