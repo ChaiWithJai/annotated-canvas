@@ -60,6 +60,7 @@ Validation rules:
 - `media.start_seconds` and `media.end_seconds` are required when `kind=video` or `kind=audio`.
 - Third-party media clips are references only. Upload fields are for creator-owned uploads.
 - `media.duration_seconds` should be less than or equal to 90 seconds for the bounty MVP.
+- Third-party `text`, `audio`, and `video` clip payloads reject upload/storage fields. A payload with `upload.asset_id`, `r2_key`, or `stream_uid` must use `kind=upload` and must set `owned_by_author=true`.
 
 ### `Annotation`
 
@@ -154,6 +155,48 @@ In `AUTH_MODE=oauth`, provider callbacks exchange the authorization code with Go
 | `GET` | `/api/uploads/:id` | Poll upload processing state. |
 
 Cloudflare Stream direct creator uploads are only for user-owned video. Third-party YouTube/news/podcast references should not be copied into Stream or R2.
+
+### Audio Commentary Status
+
+Implemented now:
+
+- Extension recording is scaffolded with browser `MediaRecorder` where the browser exposes microphone capture.
+- `POST /api/uploads/audio-commentary` returns an upload object with `kind=audio-commentary`, `storage=r2`, `r2_key`, `max_bytes=26214400`, and `status`.
+- When `MEDIA_BUCKET` is not bound, the route returns `status=intent-created`; this is the current production state.
+- `POST /api/annotations` rejects `commentary.kind=audio` if `audio_asset_id` is missing.
+
+Not implemented yet:
+
+- Upload size and audio content type are not rejected before storage.
+- Upload metadata is not persisted, so publish cannot prove `audio_asset_id` points to a finalized stored object.
+- There is no finalize endpoint, signed/proxied playback URL, or permalink audio player contract.
+
+Next API slice:
+
+1. Add an `audio_uploads` metadata record with `id`, `r2_key`, `content_type`, `byte_size`, `status`, `author_id`, and timestamps.
+2. Reject unsupported audio content types and bodies larger than `26214400` bytes before `MEDIA_BUCKET.put`.
+3. Add `POST /api/uploads/audio-commentary/:id/finalize` or equivalent server-side finalization.
+4. Make `POST /api/annotations` accept `commentary.kind=audio` only when the upload belongs to the author and is finalized.
+
+### 240p Owned-Media Policy Status
+
+Implemented now:
+
+- Third-party audio/video clips are source-linked references with `source_url`, `start_seconds`, `end_seconds`, and `duration_seconds`.
+- The 90-second maximum is enforced by the shared contract and API validation for third-party media references.
+- `POST /api/uploads/owned-video` returns an intent-only response with `kind=owned-video`, `storage=stream`, and `status=intent-created`.
+
+Not implemented yet:
+
+- No endpoint validates owned-video duration, input resolution, owner attestation beyond the `kind=upload` contract, or Cloudflare Stream upload state.
+- No route creates or verifies a 240p or otherwise sub-480p rendition.
+- No public response includes a playable owned-video rendition URL or processing state.
+
+Product decision for the bounty packet:
+
+- Third-party clips should remain reference-only and should not be copied or transcoded.
+- The 240p / below-480p requirement should apply only to creator-owned uploads.
+- If owned-video upload is included in the demo, the implementation must either reject inputs that cannot produce an allowed rendition or store originals privately and serve only a <=240p/sub-480p rendition.
 
 ## Error Envelope
 

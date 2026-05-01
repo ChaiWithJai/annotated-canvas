@@ -47,8 +47,8 @@ This audit is intentionally reviewer-facing: it separates what works now from wh
 | URL input or current page | Deployed but limited | Web URL composer and extension current-page capture exist. | Production extension publish and exact payload evidence still required. | #23, #30 |
 | Prompt for start/end or text section | Deployed but limited | UI/API support text quote and media start/end; API rejects invalid duration. | Browser proof must show user-entered values are the values sent and stored. | #23, #30 |
 | Max clip size 90 seconds | Working now | Contract/API tests reject media over 90 seconds; browser plan records client-side proof requirement. | p95 proof that extension blocks before production network request. | #30 |
-| Downgrade clip to 240p / below 480p | Not yet implemented | Current MVP keeps third-party media source-linked by reference and avoids copying third-party bytes. | Human product/legal decision and owned-upload processing rule are required. | #26 |
-| Text or recorded audio commentary | Deployed but limited | Text works; audio upload endpoint returns an intent when R2 is unavailable. | R2 or alternate storage, finalize semantics, permalink playback/loading proof. | #26 |
+| Downgrade clip to 240p / below 480p | Not yet implemented | Current MVP keeps third-party media source-linked by reference and now rejects upload/storage fields on third-party media contracts. | Human product/legal decision and owned-upload processing rule are required. | #26 |
+| Text or recorded audio commentary | Deployed but limited | Text works; audio upload endpoint returns an intent when R2 is unavailable; API rejects audio commentary with no `audio_asset_id`. | R2 or alternate storage, upload size/type rejection, finalize semantics, permalink playback/loading proof. | #26 |
 | Users can leave comments | Working now | Public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. | Re-run before final submission if the seed data changes. | closed #25, #28 |
 | File a claim | Working now | Public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. | Final demo should explain claim is notice intake, not automatic takedown. | closed #27, #28 |
 | All content links to original source | Working now | Third-party clip contracts require `source_url`; permalink shows original source link. | Keep this invariant in extension p95 evidence. | #21, #23 |
@@ -115,17 +115,21 @@ Learning notes:
 
 ### #26 Audio Commentary And 240p Media Policy
 
+- [x] Annotation contract/API reject audio commentary missing an `audio_asset_id`.
+- [x] Third-party clip contracts reject upload/storage fields unless the payload is an owned `kind=upload`.
 - [ ] Recorded audio has durable storage or an approved alternate path.
 - [ ] Upload/finalize metadata prevents arbitrary asset IDs from being published as audio commentary.
 - [ ] Production permalink can load or reference recorded audio commentary.
 - [ ] Third-party clips remain source-linked by reference unless an explicit rights-safe owned-upload path is approved.
 - [ ] Owned-video 240p/sub-480p enforcement is implemented or explicitly excluded from the submission.
+- [ ] Oversized audio and unsupported audio content types are rejected before storage.
+- [ ] `POST /api/uploads/owned-video` stops being intent-only before any owned-video demo is claimed as 240p compliant.
 
 Learning notes:
 
 - **Developer/user must understand**: source-linked third-party timestamps are safer than copying media bytes.
 - **Pitfall**: claiming 240p compliance for third-party references when no owned media is transcoded.
-- **p50 test**: text commentary and audio upload intent behavior are clear.
+- **p50 test**: text commentary, missing-audio-asset rejection, and audio upload intent behavior are clear.
 - **p95 test**: oversized/unsupported audio is rejected, finalized audio persists, and owned-video rendition policy is enforceable.
 
 ### #28 Final Bounty Submission Package

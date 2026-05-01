@@ -18,7 +18,7 @@ export const TextClipRefSchema = z.object({
     prefix: z.string().optional(),
     suffix: z.string().optional()
   })
-});
+}).strict();
 
 const MediaRangeSchema = z
   .object({
@@ -49,13 +49,13 @@ export const VideoClipRefSchema = z.object({
   kind: z.literal("video"),
   source: SourceRefSchema,
   media: MediaRangeSchema
-});
+}).strict();
 
 export const AudioClipRefSchema = z.object({
   kind: z.literal("audio"),
   source: SourceRefSchema,
   media: MediaRangeSchema
-});
+}).strict();
 
 export const UploadClipRefSchema = z.object({
   kind: z.literal("upload"),
@@ -66,7 +66,7 @@ export const UploadClipRefSchema = z.object({
     stream_uid: z.string().optional(),
     owned_by_author: z.literal(true)
   })
-});
+}).strict();
 
 export const ClipRefSchema = z.discriminatedUnion("kind", [
   TextClipRefSchema,
@@ -202,6 +202,29 @@ export const CommentResourceSchema = z.object({
   body: z.string().min(1),
   created_at: z.string().datetime()
 });
+
+export const AUDIO_COMMENTARY_MAX_BYTES = 25 * 1024 * 1024;
+
+export const AudioCommentaryUploadResponseSchema = z
+  .object({
+    id: z.string().min(1),
+    asset_id: z.string().min(1),
+    kind: z.literal("audio-commentary"),
+    storage: z.literal("r2"),
+    r2_key: z.string().min(1),
+    max_bytes: z.literal(AUDIO_COMMENTARY_MAX_BYTES),
+    status: z.enum(["intent-created", "stored"])
+  })
+  .strict();
+
+export const OwnedVideoUploadIntentResponseSchema = z
+  .object({
+    id: z.string().min(1),
+    kind: z.literal("owned-video"),
+    storage: z.literal("stream"),
+    status: z.literal("intent-created")
+  })
+  .strict();
 
 export const AuthProviderSchema = z.enum(["x", "google"]);
 

@@ -1,5 +1,10 @@
 // @vitest-environment node
-import { fixtures } from "@annotated/contracts";
+import {
+  AUDIO_COMMENTARY_MAX_BYTES,
+  AudioCommentaryUploadResponseSchema,
+  OwnedVideoUploadIntentResponseSchema,
+  fixtures
+} from "@annotated/contracts";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildProviderAuthorizationUrl, createOAuthCodeChallenge, handleRequest } from "./app";
 import { InMemoryRepository } from "./repository";
@@ -631,6 +636,74 @@ describe("API router regression coverage", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  it("rejects p95 audio commentary without an uploaded audio asset id", async () => {
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-missing-audio-asset"
+        },
+        body: JSON.stringify({
+          clip: fixtures.annotations[0].clip,
+          commentary: {
+            kind: "audio",
+            text: "Missing upload metadata should fail."
+          },
+          visibility: "public",
+          client_context: { surface: "extension", capture_method: "media-timecode" }
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(400);
+    expect(payload.error.code).toBe("invalid_annotation");
+  });
+
+  it("returns a truthful audio upload intent when durable media storage is unbound", async () => {
+    const response = await handleRequest(
+      request("/api/uploads/audio-commentary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "audio/webm"
+        },
+        body: "audio-bytes"
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    const upload = AudioCommentaryUploadResponseSchema.parse(payload.upload);
+    expect(response.status).toBe(200);
+    expect(upload.status).toBe("intent-created");
+    expect(upload.max_bytes).toBe(AUDIO_COMMENTARY_MAX_BYTES);
+    expect(upload.r2_key).toMatch(/^audio-commentary\/upl_.+\.webm$/);
+  });
+
+  it("keeps owned-video uploads as intent-only until 240p processing is implemented", async () => {
+    const response = await handleRequest(
+      request("/api/uploads/owned-video", {
+        method: "POST",
+        headers: {
+          "Content-Type": "video/mp4"
+        },
+        body: "video-bytes"
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    const upload = OwnedVideoUploadIntentResponseSchema.parse(payload.upload);
+    expect(response.status).toBe(200);
+    expect(upload.status).toBe("intent-created");
+    expect("max_height_pixels" in payload.upload).toBe(false);
   });
 
   it("treats p95 claim filing as notice intake without removing content", async () => {
