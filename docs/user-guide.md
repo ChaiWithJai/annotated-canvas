@@ -79,12 +79,12 @@ The MVP is not installed from the Chrome Web Store. Build the extension and load
 
 The extension side panel has four tabs:
 
-- `CONTEXT`: capture a source-linked text or timecode clip and add commentary.
-- `DRAFTS`: placeholder for saved draft annotations.
-- `ANNOTATIONS`: placeholder for previously published annotations.
-- `SETTINGS`: placeholder for account and provider settings.
+- `Capture`: capture a source-linked selected-text or timecode clip, add commentary, save a local draft, or publish.
+- `Drafts`: restore the most recent local smoke-test draft saved in Chrome extension storage.
+- `Published`: points reviewers to the API feed after publish.
+- `Settings`: switch the API base between localhost and the production Worker without source edits.
 
-The current side panel reads the active tab when it can, falls back to the demo source when it cannot, and publishes through the local API when `Publish annotation` is clicked. Use the API flow below when you need to inspect the exact backend payload.
+The side panel reads the active tab when it can, falls back to the tab URL/title when a content script cannot answer, and publishes through the configured API when `Publish annotation` is clicked. The Settings tab defaults to `http://localhost:8787` and includes a `Production` preset for `https://annotated-canvas-api.jaybhagat841.workers.dev`.
 
 When rebuilding the extension, return to `chrome://extensions` and click the reload icon on the Annotated Canvas card.
 
@@ -92,16 +92,18 @@ When rebuilding the extension, return to `chrome://extensions` and click the rel
 
 There are two MVP paths.
 
-### Publish from the Extension Demo
+### Publish from the Extension
 
 1. Load the unpacked extension from `dist/extension`.
-2. Open the extension side panel.
-3. On `Capture`, choose `Time range` or `Selected text`.
-4. Add commentary.
-5. Click `Publish annotation`.
-6. The button changes from `Publishing...` to `Published`.
+2. Start the local API with `npm run dev:api`, or open Settings and save the production Worker URL.
+3. Open the extension side panel on a real page.
+4. On `Capture`, choose `Time range` or `Selected text`.
+5. Add commentary.
+6. Optionally click `Save draft`; the latest local draft can be restored from `Drafts`.
+7. Click `Publish annotation`.
+8. The button changes from `Publishing...` to `Published`.
 
-This verifies the local capture UI, but it does not currently persist the annotation through the API.
+This posts to `POST /api/annotations` on the configured API base. For media clips, ranges longer than 90 seconds are blocked in the side panel before a network publish request is sent. For selected text, the context-menu path is `right-click selected text -> Annotate selected text`, then publish from the side panel.
 
 ### Publish Through the Local API
 
@@ -242,6 +244,8 @@ curl "http://localhost:8787/api/auth/x/start?return_to=http://127.0.0.1:5173/"
 ```
 
 In demo mode, the API returns an authorization URL that points directly to the local callback instead of redirecting to a real provider.
+
+The extension currently shows a signed-out limitation message because real extension OAuth handoff is not complete. Publishing still works against the API using the server-side demo author until the auth branch lands real provider credentials and token handoff.
 
 ## Troubleshooting
 
