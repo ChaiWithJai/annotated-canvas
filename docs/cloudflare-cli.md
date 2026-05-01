@@ -77,6 +77,28 @@ npm run cf:deploy:production
 
 The first production setup created D1 `84bcbb47-3471-4a78-a99d-1f02c19bb2d9`, KV `46ef271ad63242ea86c3a657f05fa556`, Queues `annotated-canvas-jobs` and `annotated-canvas-dlq`, Worker `annotated-canvas-api`, and Pages project `annotated-canvas`. The live URLs are `https://annotated-canvas-api.jaybhagat841.workers.dev` and `https://annotated-canvas.pages.dev`. R2 returned Cloudflare API code `10042` because R2 is not enabled for the account; production omits the R2 binding until the audio-commentary storage issue is completed.
 
+## Dependency Handoff Gates
+
+Full gate sequencing is in `output/reports/gas-town/dependency-gate-map.md`. For the CLI lane, the highest priority external gate is proving deploy-from-main through GitHub Actions:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...
+npm run cf:setup:production -- --apply --github
+gh workflow run "CI and Deploy" --ref main -f deploy_production=true
+```
+
+This is HITL-required because the token value and approval to enable `CLOUDFLARE_DEPLOY_ENABLED=true` must come from the account owner. Without those credentials, engineers can still run dry runs, verify workflow conditions, update docs, and confirm the latest verification job status.
+
+Auth and media gates are separate:
+
+- Google callback URL: `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/google/callback`.
+- X callback URL: `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/x/callback`.
+- R2 bucket name, if enabled: `annotated-canvas-media`.
+- Worker binding to restore after storage exists: `MEDIA_BUCKET`.
+
+Do not install OAuth provider secrets until #24 has finalized the production secret names and token-exchange implementation. Do not restore the production R2 binding until R2 is enabled or an alternate storage path has been chosen.
+
 Local OAuth is optional and mainly useful when an engineer wants an interactive fallback session:
 
 ```bash

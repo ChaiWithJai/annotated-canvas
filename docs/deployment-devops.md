@@ -252,6 +252,20 @@ Post-deploy smoke gate:
 - File a claim and verify content is not automatically removed.
 - Enqueue a duplicate background job and verify no duplicate side effects.
 
+## External Dependency Gate Map
+
+The current dependency sequence is captured in `output/reports/gas-town/dependency-gate-map.md`. Use that artifact as the handoff map for #22/#26 and the related #24 auth dependency.
+
+Order the remaining external gates this way:
+
+1. Prove deploy-from-main through GitHub Actions for #22.
+2. Finish no-credential auth hardening, then install Google/X provider apps and secrets for #24.
+3. Enable R2 or choose an alternate audio storage path for #26.
+4. Finalize the owned-media 240p/sub-480p policy for #26.
+5. Update the submission packet and submit only with completed gates or explicit known-limitations disclosure.
+
+No-credential work can continue on docs, dry runs, tests, fail-closed auth behavior, upload validation, and policy text. HITL work starts when secrets, account-level product enablement, provider app configuration, or product/legal media-policy decisions are needed.
+
 ## Current Production Status And Remaining Blockers
 
 - `apps/api/wrangler.production.jsonc` has production D1 and KV IDs for the `Jaybhagat841@gmail.com's Account` Cloudflare account.
@@ -266,3 +280,4 @@ Post-deploy smoke gate:
 - Preview/staging environments are not yet configured in Wrangler.
 - Remote migration execution uses `apps/api/migrations/production`, so `0002_seed_demo.sql` is not part of production deployment.
 - R2 is not enabled for the Cloudflare account yet. Production deploy omits the `MEDIA_BUCKET` binding, so audio commentary returns an upload intent instead of storing audio until #26 enables R2 or another storage path.
+- Google/X provider apps and secrets are not installed yet. #24 must also finalize real token exchange, session hardening, and extension handoff before credentials can close auth.

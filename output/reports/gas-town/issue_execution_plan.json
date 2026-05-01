@@ -1,0 +1,51 @@
+[
+  {
+    "issue": 24,
+    "priority": "P0",
+    "status": "no_credential_slice_implemented_external_oauth_required",
+    "why": "Visible sign-in controls are not wired to a credible auth flow; production auth falls back instead of failing closed when provider config is missing.",
+    "deliverable": "Backend auth now fails closed, validates state/session boundaries, and web sign-in now calls the API with inline errors. Real provider exchange remains blocked on external OAuth apps/secrets."
+  },
+  {
+    "issue": 23,
+    "priority": "P0",
+    "status": "next",
+    "why": "Capture is mostly implemented but still needs browser-level payload proof across selected text and media timecode.",
+    "deliverable": "Browser evidence and issue packet updates after auth slice."
+  },
+  {
+    "issue": 30,
+    "priority": "P0",
+    "status": "next",
+    "why": "Extension reviewer proof remains incomplete against production Worker URL and p95 capture cases.",
+    "deliverable": "Computer Use/Chrome smoke against production API settings, selected text, media current time, over-90 rejection."
+  },
+  {
+    "issue": 22,
+    "priority": "P0",
+    "status": "blocked_external_secret",
+    "why": "Local Cloudflare deployment is live; GitHub deploy-from-main remains skipped without scoped Cloudflare API token.",
+    "deliverable": "Store production secrets/vars and prove GitHub Actions deploy job runs."
+  },
+  {
+    "issue": 21,
+    "priority": "P0",
+    "status": "rollup_open",
+    "why": "Bounty rollup cannot close while #24/#23/#30/#26/#22 remain open.",
+    "deliverable": "Close only after child issues and final submission evidence converge."
+  },
+  {
+    "issue": 26,
+    "priority": "P1",
+    "status": "blocked_platform_plus_code",
+    "why": "R2 disabled; audio storage/finalize and 240p owned-media policy incomplete.",
+    "deliverable": "Enable/replace storage, restore binding, implement finalize/tests/policy."
+  },
+  {
+    "issue": 28,
+    "priority": "P1",
+    "status": "blocked_by_product_gaps",
+    "why": "Packet has live URLs, but sign-in/capture/audio gaps must be fixed or disclosed before external submission.",
+    "deliverable": "Final reviewer script and submission after core gaps are resolved."
+  }
+]

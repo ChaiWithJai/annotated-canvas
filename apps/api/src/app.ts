@@ -18,6 +18,26 @@ interface Services {
   jobs: JobQueue;
 }
 
+type AuthProvider = "x" | "google";
+
+interface OAuthState {
+  provider: AuthProvider;
+  return_to: string;
+}
+
+interface AuthSession {
+  user_id: string;
+  provider?: AuthProvider;
+  handle?: string;
+  display_name?: string;
+}
+
+const DEMO_USER = {
+  id: "usr_demo",
+  handle: "mira",
+  display_name: "Mira Chen"
+};
+
 const defaultRepositories = new Map<string, InMemoryRepository>();
 
 function getDefaultRepository(appOrigin: string): InMemoryRepository {
@@ -37,35 +57,61 @@ export function makeServices(env: Env): Services {
   };
 }
 
-function corsHeaders(env: Env): HeadersInit {
-  return {
-    "Access-Control-Allow-Origin": "*",
+function isAllowedCorsOrigin(origin: string, env: Env): boolean {
+  const appOrigin = normalizeAppOrigin(env.APP_ORIGIN);
+  return (
+    origin === appOrigin ||
+    origin === "http://localhost:5173" ||
+    origin === "http://127.0.0.1:5173" ||
+    origin.startsWith("chrome-extension://")
+  );
+}
+
+function corsHeaders(env: Env, request?: Request): HeadersInit {
+  const origin = request?.headers.get("Origin");
+  const accessControlOrigin = origin && isAllowedCorsOrigin(origin, env) ? origin : "*";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Origin": accessControlOrigin,
     "Access-Control-Allow-Headers": "Content-Type, Idempotency-Key, Authorization",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin"
   };
+
+  if (accessControlOrigin !== "*") {
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+
+  return headers;
 }
 
-function json(env: Env, body: unknown, init: ResponseInit = {}): Response {
+function json(env: Env, body: unknown, init: ResponseInit = {}, request?: Request): Response {
   return new Response(JSON.stringify(body, null, 2), {
     ...init,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      ...corsHeaders(env),
+      ...corsHeaders(env, request),
       ...init.headers
     }
   });
 }
 
-function error(env: Env, status: number, code: string, message: string, details: Record<string, unknown> = {}): Response {
+function error(
+  env: Env,
+  status: number,
+  code: string,
+  message: string,
+  details: Record<string, unknown> = {},
+  request?: Request
+): Response {
   return json(
     env,
     {
       error: { code, message, details },
       request_id: createRequestId()
     },
-    { status }
+    { status },
+    request
   );
 }
 
@@ -91,11 +137,162 @@ function queueJob(type: QueueJob["type"], ids: Partial<Pick<QueueJob, "annotatio
   };
 }
 
+function authMode(env: Env): "demo" | "oauth" {
+  return env.AUTH_MODE ?? "demo";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getProviderCredentials(env: Env, provider: AuthProvider) {
+  return provider === "google"
+    ? {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+        clientIdName: "GOOGLE_CLIENT_ID",
+        clientSecretName: "GOOGLE_CLIENT_SECRET"
+      }
+    : {
+        clientId: env.X_CLIENT_ID,
+        clientSecret: env.X_CLIENT_SECRET,
+        clientIdName: "X_CLIENT_ID",
+        clientSecretName: "X_CLIENT_SECRET"
+      };
+}
+
+function missingOAuthConfig(env: Env, provider: AuthProvider): string[] {
+  const credentials = getProviderCredentials(env, provider);
+  return [
+    !credentials.clientId ? credentials.clientIdName : null,
+    !credentials.clientSecret ? credentials.clientSecretName : null,
+    !env.SESSION_KV ? "SESSION_KV" : null
+  ].filter((item): item is string => Boolean(item));
+}
+
+function oauthConfigError(env: Env, request: Request, provider: AuthProvider, missing: string[]): Response {
+  return error(env, 503, "auth_not_configured", "OAuth is not configured for this provider.", {
+    provider,
+    missing
+  }, request);
+}
+
+function parseCookie(request: Request, name: string): string | null {
+  const cookieHeader = request.headers.get("Cookie");
+  if (!cookieHeader) return null;
+
+  for (const cookie of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = cookie.trim().split("=");
+    if (rawName !== name) continue;
+    const value = rawValue.join("=");
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function parseOAuthState(value: string): OAuthState | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      isRecord(parsed) &&
+      (parsed.provider === "x" || parsed.provider === "google") &&
+      typeof parsed.return_to === "string"
+    ) {
+      return {
+        provider: parsed.provider,
+        return_to: parsed.return_to
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function parseAuthSession(value: string): AuthSession | null {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!isRecord(parsed) || typeof parsed.user_id !== "string" || parsed.user_id.length === 0) {
+      return null;
+    }
+
+    return {
+      user_id: parsed.user_id,
+      provider: parsed.provider === "x" || parsed.provider === "google" ? parsed.provider : undefined,
+      handle: typeof parsed.handle === "string" ? parsed.handle : undefined,
+      display_name: typeof parsed.display_name === "string" ? parsed.display_name : undefined
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function requireOAuthSession(request: Request, env: Env): Promise<AuthSession | Response> {
+  if (!env.SESSION_KV) {
+    return error(env, 503, "auth_not_configured", "OAuth sessions require SESSION_KV.", {}, request);
+  }
+
+  const sessionId = parseCookie(request, "annotated_session");
+  if (!sessionId) {
+    return error(env, 401, "authentication_required", "A valid session is required.", {}, request);
+  }
+
+  const sessionPayload = await env.SESSION_KV.get(`session:${sessionId}`);
+  if (!sessionPayload) {
+    return error(env, 401, "authentication_required", "A valid session is required.", {}, request);
+  }
+
+  const session = parseAuthSession(sessionPayload);
+  if (!session) {
+    return error(env, 401, "authentication_required", "A valid session is required.", {}, request);
+  }
+
+  return session;
+}
+
+function resolveReturnTo(env: Env, rawReturnTo: string | null): string {
+  const appOrigin = normalizeAppOrigin(env.APP_ORIGIN);
+  if (!rawReturnTo) return appOrigin;
+
+  try {
+    const candidate = new URL(rawReturnTo, appOrigin);
+    if (candidate.origin === appOrigin) return candidate.toString();
+  } catch {
+    return appOrigin;
+  }
+
+  return appOrigin;
+}
+
+function sessionCookie(name: string, value: string, env: Env, maxAgeSeconds: number): string {
+  const encodedValue = encodeURIComponent(value);
+  const sameSite = normalizeAppOrigin(env.APP_ORIGIN).startsWith("https://") ? "SameSite=None; Secure" : "SameSite=Lax";
+  return `${name}=${encodedValue}; Path=/; HttpOnly; ${sameSite}; Max-Age=${maxAgeSeconds}`;
+}
+
+function expiredSessionCookie(env: Env): string {
+  return `${sessionCookie("annotated_session", "", env, 0)}; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}
+
+function userFromSession(session: AuthSession) {
+  return {
+    id: session.user_id,
+    handle: session.handle ?? DEMO_USER.handle,
+    display_name: session.display_name ?? DEMO_USER.display_name
+  };
+}
+
 export async function handleRequest(request: Request, env: Env, services = makeServices(env)): Promise<Response> {
   const url = new URL(request.url);
 
   if (request.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders(env) });
+    return new Response(null, { headers: corsHeaders(env, request) });
   }
 
   if (url.pathname === "/api/health" && request.method === "GET") {
@@ -107,17 +304,26 @@ export async function handleRequest(request: Request, env: Env, services = makeS
   }
 
   if (url.pathname === "/api/me" && request.method === "GET") {
+    if (authMode(env) === "oauth") {
+      const session = await requireOAuthSession(request, env);
+      if (session instanceof Response) return session;
+
+      return json(env, {
+        user: userFromSession(session),
+        auth: {
+          providers: ["x", "google"],
+          extension_token_supported: true
+        }
+      }, {}, request);
+    }
+
     return json(env, {
-      user: {
-        id: "usr_demo",
-        handle: "mira",
-        display_name: "Mira Chen"
-      },
+      user: DEMO_USER,
       auth: {
         providers: ["x", "google"],
         extension_token_supported: true
       }
-    });
+    }, {}, request);
   }
 
   const authStartMatch = url.pathname.match(/^\/api\/auth\/([^/]+)\/start$/);
@@ -127,9 +333,15 @@ export async function handleRequest(request: Request, env: Env, services = makeS
       return error(env, 400, "unsupported_auth_provider", "Auth provider must be x or google.");
     }
 
-    const returnTo = url.searchParams.get("return_to") ?? "/";
+    const returnTo = resolveReturnTo(env, url.searchParams.get("return_to"));
     const state = `state_${crypto.randomUUID()}`;
-    const mode = env.AUTH_MODE ?? "demo";
+    const mode = authMode(env);
+    const credentials = getProviderCredentials(env, provider.data);
+    const missing = mode === "oauth" ? missingOAuthConfig(env, provider.data) : [];
+    if (missing.length > 0) {
+      return oauthConfigError(env, request, provider.data, missing);
+    }
+
     const callbackUrl = new URL(`/api/auth/${provider.data}/callback`, url.origin);
     callbackUrl.searchParams.set("state", state);
     callbackUrl.searchParams.set("return_to", returnTo);
@@ -143,10 +355,9 @@ export async function handleRequest(request: Request, env: Env, services = makeS
       );
     }
 
-    const clientId = provider.data === "google" ? env.GOOGLE_CLIENT_ID : env.X_CLIENT_ID;
     const authorizationUrl =
-      mode === "oauth" && clientId
-        ? buildProviderAuthorizationUrl(provider.data, clientId, callbackUrl.toString(), state)
+      mode === "oauth" && credentials.clientId
+        ? buildProviderAuthorizationUrl(provider.data, credentials.clientId, callbackUrl.toString(), state)
         : callbackUrl.toString();
 
     return json(env, {
@@ -165,16 +376,48 @@ export async function handleRequest(request: Request, env: Env, services = makeS
     }
 
     const state = url.searchParams.get("state");
-    const returnTo = url.searchParams.get("return_to") ?? "/";
+    const returnTo = resolveReturnTo(env, url.searchParams.get("return_to"));
     if (!state) {
       return error(env, 400, "oauth_state_required", "OAuth callback requires state.");
+    }
+
+    if (authMode(env) === "oauth") {
+      const code = url.searchParams.get("code");
+      if (!code) {
+        return error(env, 400, "oauth_code_required", "OAuth callback requires code.");
+      }
+
+      if (!env.SESSION_KV) {
+        return error(env, 503, "auth_not_configured", "OAuth state validation requires SESSION_KV.");
+      }
+
+      const stateKey = `oauth_state:${state}`;
+      const storedStatePayload = await env.SESSION_KV.get(stateKey);
+      if (!storedStatePayload) {
+        return error(env, 400, "invalid_oauth_state", "OAuth state is invalid or has already been used.");
+      }
+
+      await env.SESSION_KV.delete(stateKey);
+      const storedState = parseOAuthState(storedStatePayload);
+      if (!storedState || storedState.provider !== provider.data) {
+        return error(env, 400, "invalid_oauth_state", "OAuth state is invalid or has already been used.");
+      }
+
+      return error(env, 501, "not_implemented", "OAuth token exchange is not implemented.", {
+        provider: provider.data
+      });
     }
 
     const sessionId = `ses_${crypto.randomUUID()}`;
     if (env.SESSION_KV) {
       await env.SESSION_KV.put(
         `session:${sessionId}`,
-        JSON.stringify({ user_id: "usr_demo", provider: provider.data }),
+        JSON.stringify({
+          user_id: DEMO_USER.id,
+          provider: provider.data,
+          handle: DEMO_USER.handle,
+          display_name: DEMO_USER.display_name
+        }),
         { expirationTtl: 60 * 60 * 24 * 14 }
       );
     }
@@ -183,13 +426,18 @@ export async function handleRequest(request: Request, env: Env, services = makeS
       status: 302,
       headers: {
         Location: returnTo,
-        "Set-Cookie": `annotated_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=1209600`,
-        ...corsHeaders(env)
+        "Set-Cookie": sessionCookie("annotated_session", sessionId, env, 1209600),
+        ...corsHeaders(env, request)
       }
     });
   }
 
   if (url.pathname === "/api/auth/extension-token" && request.method === "POST") {
+    if (authMode(env) === "oauth") {
+      const session = await requireOAuthSession(request, env);
+      if (session instanceof Response) return session;
+    }
+
     return json(env, {
       token: `ext_${crypto.randomUUID()}`,
       expires_in: 3600,
@@ -198,14 +446,20 @@ export async function handleRequest(request: Request, env: Env, services = makeS
   }
 
   if (url.pathname === "/api/auth/logout" && request.method === "POST") {
+    const sessionId = parseCookie(request, "annotated_session");
+    if (env.SESSION_KV && sessionId) {
+      await env.SESSION_KV.delete(`session:${sessionId}`);
+    }
+
     return json(
       env,
       { ok: true },
       {
         headers: {
-          "Set-Cookie": "annotated_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+          "Set-Cookie": expiredSessionCookie(env)
         }
-      }
+      },
+      request
     );
   }
 

@@ -1,0 +1,788 @@
+[
+  {
+    "body": "Parent: #23, #21\n\n## Bounty discrepancy\n\nThe extension can be built locally, but we do not yet have browser-level proof that a reviewer can load the unpacked MV3 extension, capture a real tab, publish through the configured API target, and see the result in the web feed/permalink.\n\n## Learning objective\n\nTurn the extension from code-complete into reviewer-verifiable software. Document every Chrome extension pitfall, local setup step, permission prompt, API target decision, and smoke-test artifact so the bounty reviewer can reproduce the path without store approval.\n\n## Practice task\n\nUse Computer Use or Playwright/browser automation where practical to load the built Chrome extension locally and run the full capture flow against the local or deployed API. Capture evidence and update the submission packet with exact reviewer steps.\n\n## Acceptance criteria\n\n- [ ] `npm run build:extension` creates a loadable unpacked extension directory.\n- [ ] Reviewer install steps identify the exact Chrome page, folder, permissions, and refresh behavior.\n- [ ] Extension settings or build config can point to localhost and production Worker API without source edits.\n- [ ] Smoke test captures current tab URL/title and selected text from a real browser page.\n- [ ] Smoke test captures a media time range and enforces the 90-second cap before network publish.\n- [ ] Smoke test publishes through the API and verifies the new annotation appears in the web client/feed or API response.\n- [ ] Audio commentary path is tested or explicitly documented as blocked by browser/microphone/R2 constraints.\n- [ ] Evidence is attached or linked in #28 submission packet.\n- [ ] Learning log documents extension-specific pitfalls such as MV3 side panel access, localhost CORS, host permissions, reload-after-build, and production API base switching.\n\n## Roadblocks and learning log\n\n- Current roadblock: public deploy URL is not available yet; local smoke can proceed against `http://localhost:8787`.\n- Pitfall to test: an unpacked extension cannot assume localhost in review builds; the API base must be configurable or injected at build time.\n- Pitfall to test: Chrome extension permissions and side panel behavior differ from normal web app Playwright flows, so Computer Use may be needed for final manual proof.\n",
+    "comments": [
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7jTDA",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Static inspection and local smoke prep for #30 is ready. I added `docs/chrome-extension-local-smoke.md` with the reviewer install path, smoke checklist, evidence requirements, bounty mapping, and learning-log pitfalls.\n\n## Static findings\n\n- Source manifest: `apps/extension/public/manifest.json`\n- Expected unpacked directory: `dist/extension` from `npm run build:extension`\n- MV3 manifest shape: `manifest_version: 3`, `name: Annotated Canvas`, `minimum_chrome_version: 116`\n- Entrypoints: `service-worker.js`, `sidepanel.html`, `content-script.js`\n- Permissions: `sidePanel`, `scripting`, `storage`, `tabs`, `contextMenus`, `identity`; host permissions are `<all_urls>`\n- API base behavior: default `http://localhost:8787`; side panel Settings persists `apiBaseUrl` in `chrome.storage.local`, so localhost vs production Worker switching should not require a source edit.\n\n## Acceptance criteria mapping\n\n- Build/loadable artifact: run `npm run build:extension`, then load `dist/extension` in Chrome.\n- Exact reviewer install steps: `chrome://extensions` -> Developer mode -> Load unpacked -> select `dist/extension` -> reload the extension card after rebuilds.\n- API target switching: verify Settings saves localhost and deployed Worker origins.\n- Current tab capture: verify active tab URL/title via content script or tab fallback on a real page.\n- Selected text capture: select text, use the `Annotate selected text` context menu, and confirm the side panel shows the selected text path.\n- Media capture and 90-second cap: verify media time range seeds from a real audio/video page where available, and that >90 seconds is blocked before network publish.\n- Publish proof: publish <=90 seconds through local or deployed API and verify the annotation in feed/web/API response.\n- Audio commentary: test microphone + upload path, or document the exact browser/upload/R2 blocker.\n- Submission packet evidence: attach screenshots/recordings/API ids to #28 after browser verification.\n\n## Bounty criteria smoke proof\n\n| Requirement | Proof to capture |\n| --- | --- |\n| Sidebar Chrome extension | `dist/extension` loads unpacked and opens the MV3 side panel. |\n| Highlight/clip media from any website | Selected text path plus media URL/title/time range capture from a real page. |\n| Add commentary/annotations | Side panel commentary posts to `POST /api/annotations`. |\n| Public feed | Published annotation appears in web feed/permalink or API feed response. |\n| URL/current page | Extension reads active tab URL/title without manual source entry. |\n| 90-second max | Side panel blocks >90s media ranges before network publish. |\n| Audio commentary | Voice note publish proof, or precise microphone/upload blocker. |\n\n## Learning-log pitfalls to capture\n\n- MV3 side panel testing differs from normal web-app browser automation.\n- Reload the unpacked extension at `chrome://extensions` after every rebuild.\n- Load `dist/extension`, not `apps/extension`.\n- Verify localhost CORS and extension host permissions together.\n- Treat context-menu selected text and active-tab content-script reads as separate capture paths.\n- Keep API base switching configurable without source edits.\n- Microphone permissions and upload storage can block audio commentary independently from text/media publishing.\n\n## Blocker for main thread/browser automation\n\nI started `npm run build:extension`; it reached Vite `transforming...` output but did not complete before being stopped per coordination instruction. A `dist/extension` directory is present locally with the expected manifest/file shape, and I validated the manifest keys statically, but final evidence should rerun the build from a clean state and then load Chrome manually/with the main thread automation. No Computer Use was used here.",
+        "createdAt": "2026-05-01T02:11:14Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/30#issuecomment-4357411596",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7onQw",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Build/test blocker update from main thread:\n\n- Reproduced the extension/web build hang under Vite 8.0.10; sampling showed the process blocked inside native `rolldown-worker` threads.\n- Pinned the repo back to Vite 7.3.2 with `@vitejs/plugin-react` 5.2.0, which restored deterministic Rollup-based builds.\n- Split `npm test` into node logic tests plus a separate happy-dom web UI test to avoid Vitest worker startup timeouts.\n- Added extension Settings API URL persistence so local review can target `http://localhost:8787` and production review can target the deployed Worker without source edits.\n\nVerified locally after the fix:\n- `npm run typecheck`\n- `npm test` -> 4 files, 31 tests passing\n- `npm run test:workers` -> 1 Worker-runtime test passing; workerd still prints the known WebSocket disconnect message after success\n- `npm run build` -> web and extension artifacts build cleanly under `dist/web` and `dist/extension`\n\nNext evidence step remains browser-level proof: load `dist/extension` unpacked in Chrome, open the side panel, set/confirm API URL, capture selected text/time range, publish, and verify the API/web feed response.",
+        "createdAt": "2026-05-01T02:40:18Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/30#issuecomment-4357498691",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7pjFQ",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "## Local Chrome extension browser smoke update\n\nVerified with Computer Use in desktop Chrome:\n\n- Loaded `dist/extension` through `chrome://extensions` with Developer Mode enabled.\n- Confirmed extension card: `Annotated Canvas 0.1.0`, extension ID `knpgndejanjcgnfognmebiieingaimkl`.\n- Pinned the extension to the toolbar.\n- Opened the MV3 side panel from the extension action.\n- Verified Settings shows `http://localhost:8787` and Save settings returns `Saved.`.\n- Opened the local web client at `http://127.0.0.1:5173/`, reopened the extension, and confirmed the side panel captured the active tab source as `Annotated Canvas` / `http://127.0.0.1:5173/`.\n- Published a 47-second time range from the extension side panel into the local Worker API.\n- Verified `GET /api/feed` contains the created annotation:\n  - id: `ann_e496763a-fb93-457b-a3f7-a6659d4f3e9d`\n  - source_url: `http://127.0.0.1:5173/`\n  - source_domain: `127.0.0.1`\n  - commentary: `Local extension smoke test for bounty criteria: capture from active tab to local API.`\n\nRegression gates passed before browser smoke:\n\n- `npm run typecheck`\n- `npm test`\n- `npm run test:workers`\n- `npm run build`\n\nRemaining p95 smoke gaps before this can close:\n\n- Selected-text context menu capture on a normal content page.\n- Real video/audio current-time capture.\n- Browser proof for >90 second client-side validation.\n- Microphone + audio commentary upload proof.\n- Production Worker URL save/switch after Cloudflare deployment exists.\n\nI also updated `docs/chrome-extension-local-smoke.md` with the verified evidence and remaining gaps.\n",
+        "createdAt": "2026-05-01T02:45:50Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/30#issuecomment-4357514005",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7qu5g",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "## Commit and CI update\n\nThe local extension smoke work is now on `main` in commit `49ddf78`.\n\nGitHub Actions run `25199948055` passed verification after the push:\n\n- typecheck\n- unit/integration tests\n- Worker runtime tests\n- production builds\n\nThis issue should remain open until the remaining p95 extension smoke items are proven or explicitly split out:\n\n- selected-text context menu capture\n- real media current-time capture\n- over-90-second browser validation\n- audio commentary/microphone/upload proof\n- production Worker API URL switching after deploy\n",
+        "createdAt": "2026-05-01T02:52:17Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/30#issuecomment-4357533414",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wL5w",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Chrome extension status after the deployment pass, May 1, 2026:\n\nDone/proven:\n- `npm run build` passed, including `npm run build:extension`.\n- Prior local Chrome proof loaded `dist/extension` unpacked, opened the side panel, saved `http://localhost:8787`, captured the active tab, and published a local smoke annotation.\n\nStill required before closing this ticket:\n- Reload the newly rebuilt `dist/extension` artifact and run the same smoke against the production Worker URL.\n- Prove selected-text context menu capture binds the exact quote into `POST /api/annotations`.\n- Prove real media current-time capture binds start/end/duration into the payload.\n- Prove >90-second media capture is rejected in the browser, not only in unit tests.\n- Record a reviewer-friendly clip or screenshot sequence for the bounty packet.\n\nLearning note: this is the boundary between p50 smoke and p95 confidence. A side panel opening and one current-page publish proves the path exists; it does not prove precision capture, rejected invalid duration, or reviewer repeatability.\n",
+        "createdAt": "2026-05-01T03:20:51Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/30#issuecomment-4357622759",
+        "viewerDidAuthor": true
+      }
+    ],
+    "labels": [
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnYYA",
+        "name": "type:task",
+        "description": "Concrete task with clear acceptance criteria",
+        "color": "0E8A16"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZDw",
+        "name": "stream:chrome-extension",
+        "description": "Chrome extension and MV3 side panel stream",
+        "color": "5319E7"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZTA",
+        "name": "area:chrome-extension",
+        "description": "MV3 extension, side panel, content scripts",
+        "color": "D4C5F9"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaNA",
+        "name": "priority:p0",
+        "description": "Critical path for MVP scaffolding",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaWg",
+        "name": "learning-log",
+        "description": "Issue must document learning, roadblocks, and pitfalls",
+        "color": "C5DEF5"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnanA",
+        "name": "risk:platform",
+        "description": "Platform constraint or integration risk",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33bg",
+        "name": "bounty:gap",
+        "description": "Gap found against bounty.txt requirements",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc34KQ",
+        "name": "area:bounty-submission",
+        "description": "Submission readiness for the Annotated bounty",
+        "color": "FBCA04"
+      }
+    ],
+    "number": 30,
+    "state": "OPEN",
+    "title": "Task: Local Chrome extension install and bounty smoke verification",
+    "updatedAt": "2026-05-01T03:20:51Z",
+    "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/30"
+  },
+  {
+    "body": "Parent: #21\n\n## Bounty discrepancy\n\nThe bounty asks submissions to be posted to annotated.lovable.app. We need a concise submission package once deployment and core bounty flows are live.\n\n## Learning objective\n\nCreate a reviewer-friendly package that demonstrates the product against the bounty requirements with minimal setup friction.\n\n## Acceptance criteria\n\n- [ ] Public web URL is live.\n- [ ] Public API health URL is live.\n- [ ] Chrome extension local-install instructions are linked.\n- [ ] Demo script covers sign in, current-page capture, URL capture, text/video/audio commentary, feed, follow, comments, claim filing, and source links.\n- [ ] Known limitations are explicit and do not obscure bounty-critical behavior.\n- [ ] Submission checklist is posted to this issue before external submission.\n",
+    "comments": [
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7hqdw",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Closure audit, May 1 2026:\n\nKeep open. The final submission package is blocked on public deployment and production auth/media decisions.\n\nCurrent blocker evidence:\n- `wrangler whoami` reports not authenticated.\n- `apps/api/wrangler.production.jsonc` still has placeholder production D1/KV IDs.\n- `gh secret list`, `gh secret list --env production`, and `gh variable list` returned no configured secrets/vars.\n- Latest GitHub Actions verify run is green, but the production deploy job is skipped because the deploy gate/secrets/resources are not configured.\n\nNo-credential prep still worth doing:\n- Draft the reviewer demo script from the local flows: sign-in entry, URL capture, current-page capture, text annotation, media timecode annotation, audio commentary, feed, comment, follow, claim, source link.\n- Add a public smoke checklist for web root, `/api/health`, feed, permalink, comment POST/GET, claim POST/GET, and extension publish.\n- List known limitations honestly: demo/local auth until #24, third-party media by reference, owned-upload 240p pending #26, extension API base pending deployed URL.\n\nCredential/resource blockers: Cloudflare account/token, production D1/KV/R2/Queues/Pages resources, OAuth provider secrets, and final public URLs.\n",
+        "createdAt": "2026-05-01T02:02:08Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/28#issuecomment-4357384823",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wJJw",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Submission packet update, May 1, 2026:\n\nLive reviewer links are now in `docs/submission-packet.md`:\n- Public web: https://annotated-canvas.pages.dev\n- API health: https://annotated-canvas-api.jaybhagat841.workers.dev/api/health\n- Feed: https://annotated-canvas.pages.dev/\n- Profile: https://annotated-canvas.pages.dev/u/mira\n- Permalink: https://annotated-canvas.pages.dev/a/ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0\n\nPublic smoke evidence:\n- Created production annotation `ann_74ce284f-0516-41d1-a8f0-fdb0d3b824b0`.\n- Confirmed API canonical `permalink_url` points to `annotated-canvas.pages.dev`.\n- Created public comment `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`.\n- Created claim notice `claim_36899790-f89f-4add-9744-046b5b46c3f3`; the annotation stayed public afterward.\n- Audio upload endpoint returns `intent-created`, which documents the R2-disabled fallback instead of pretending audio storage is complete.\n\nWhat still must be disclosed or finished for a stronger bounty submission:\n- Real X/Google OAuth remains #24.\n- R2-backed audio commentary and 240p owned-media processing remain #26.\n- Exact selected-text/current-media capture proof remains #23/#30.\n- GitHub Actions deploy-from-main remains #22 until the Cloudflare API token is stored as a GitHub environment secret.\n",
+        "createdAt": "2026-05-01T03:20:36Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/28#issuecomment-4357622055",
+        "viewerDidAuthor": true
+      }
+    ],
+    "labels": [
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnSxg",
+        "name": "documentation",
+        "description": "Improvements or additions to documentation",
+        "color": "0075ca"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnYYA",
+        "name": "type:task",
+        "description": "Concrete task with clear acceptance criteria",
+        "color": "0E8A16"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaSA",
+        "name": "priority:p1",
+        "description": "Next priority after P0",
+        "color": "D93F0B"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaWg",
+        "name": "learning-log",
+        "description": "Issue must document learning, roadblocks, and pitfalls",
+        "color": "C5DEF5"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33bg",
+        "name": "bounty:gap",
+        "description": "Gap found against bounty.txt requirements",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc34KQ",
+        "name": "area:bounty-submission",
+        "description": "Submission readiness for the Annotated bounty",
+        "color": "FBCA04"
+      }
+    ],
+    "number": 28,
+    "state": "OPEN",
+    "title": "Task: Prepare final bounty submission package",
+    "updatedAt": "2026-05-01T03:20:36Z",
+    "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/28"
+  },
+  {
+    "body": "Parent: #21\n\n## Bounty discrepancy\n\nThe bounty asks for text or recorded audio commentary and says clips should be downgraded to 240p below 480p. The current MVP supports text commentary and upload intents, but not recording/uploading audio commentary. Third-party media is intentionally stored by reference, so the 240p requirement needs a rights-safe implementation decision.\n\n## Learning objective\n\nSeparate source-linked third-party references from owned media processing, then implement audio commentary capture safely.\n\n## Acceptance criteria\n\n- [ ] Extension/web can record audio commentary using browser MediaRecorder where available.\n- [ ] API supports an upload/finalize path for audio commentary assets.\n- [ ] Annotation publish can reference finalized audio commentary.\n- [ ] Product decision records how 240p applies to third-party embeds versus owned uploads.\n- [ ] Owned video upload path documents or implements Cloudflare Stream transformation settings.\n- [ ] Regression tests cover missing audio asset, oversized audio, and source attribution preservation.\n\n## Roadblocks and learning log\n\n- Pitfall: copying third-party media into R2/Stream can create avoidable rights risk; link-first behavior must remain intact unless the user owns the upload.\n",
+    "comments": [
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7eAcg",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Partial progress landed locally:\n- Extension can record microphone audio with `MediaRecorder`.\n- Extension uploads recorded audio to `POST /api/uploads/audio-commentary` before publish.\n- API now returns audio upload asset metadata and stores to R2 when `MEDIA_BUCKET` exists.\n\nRemaining:\n- Production upload/finalize hardening.\n- Explicit 240p policy/implementation for owned uploads versus third-party source-linked references.\n- Browser verification for audio recording inside the unpacked extension.",
+        "createdAt": "2026-05-01T01:42:25Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/26#issuecomment-4357324914",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7ho9w",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Closure audit, May 1 2026:\n\nKeep open. Audio commentary is locally scaffolded, but the production asset boundary and 240p policy are not done enough for bounty-close confidence.\n\nNo-credential implementation remaining:\n- Enforce audio upload size/content-type before storage; today the route advertises `max_bytes` but does not reject oversized uploads before `MEDIA_BUCKET.put`.\n- Persist audio upload metadata or otherwise validate that `commentary.kind=audio` references a finalized audio asset, not just an arbitrary ID.\n- Add tests for missing audio asset, oversized audio, unsupported content type, and publish with stored audio commentary.\n- Record the product decision that third-party audio/video stays source-linked by reference, while 240p/downscale applies only to owned uploads.\n\nCredential/provider blockers:\n- Production R2 bucket and Worker binding for stored audio commentary.\n- Cloudflare Stream or equivalent owned-video upload/encoding settings if the owned-upload path is part of the bounty demo.\n\nRecommended MVP stance: do not copy third-party media. Demo third-party clips as source-linked references with start/end times, and treat 240p as an owned-upload processing rule.\n",
+        "createdAt": "2026-05-01T02:02:01Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/26#issuecomment-4357384439",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wL5A",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Storage/audio status from the production pass, May 1, 2026:\n\nObserved platform constraint:\n- `wrangler r2 bucket create annotated-canvas-media --location enam` failed with Cloudflare API code `10042` because R2 is not enabled for the account.\n- The production Worker was deployed without the `MEDIA_BUCKET` binding so the rest of the MVP could ship.\n- `POST /api/uploads/audio-commentary` currently returns `status: intent-created`, which is a truthful fallback path, not completed audio storage.\n\nAcceptance criteria this issue still owns:\n- Enable R2 or choose an alternate storage path.\n- Restore the production `MEDIA_BUCKET` binding once storage exists.\n- Add audio recording/finalize UI in the extension/web surface.\n- Prove recorded audio commentary persists and can be loaded from a permalink.\n- Finalize the owned-media 240p/sub-480p processing policy rather than relying only on third-party source references.\n",
+        "createdAt": "2026-05-01T03:20:51Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/26#issuecomment-4357622756",
+        "viewerDidAuthor": true
+      }
+    ],
+    "labels": [
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnYQw",
+        "name": "type:epic",
+        "description": "Parent issue grouping related delivery work",
+        "color": "5319E7"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZTA",
+        "name": "area:chrome-extension",
+        "description": "MV3 extension, side panel, content scripts",
+        "color": "D4C5F9"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZ2A",
+        "name": "area:media",
+        "description": "Clip refs, uploads, source metadata, media policy",
+        "color": "FEF2C0"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaSA",
+        "name": "priority:p1",
+        "description": "Next priority after P0",
+        "color": "D93F0B"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaWg",
+        "name": "learning-log",
+        "description": "Issue must document learning, roadblocks, and pitfalls",
+        "color": "C5DEF5"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnadQ",
+        "name": "needs-research",
+        "description": "Requires research or explicit decision before coding",
+        "color": "D4C5F9"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnayg",
+        "name": "risk:legal-rights",
+        "description": "Rights, fair-use, attribution, or claims risk",
+        "color": "D93F0B"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33bg",
+        "name": "bounty:gap",
+        "description": "Gap found against bounty.txt requirements",
+        "color": "B60205"
+      }
+    ],
+    "number": 26,
+    "state": "OPEN",
+    "title": "Epic: Audio commentary and 240p media policy",
+    "updatedAt": "2026-05-01T03:20:51Z",
+    "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/26"
+  },
+  {
+    "body": "Parent: #21\n\n## Bounty discrepancy\n\nThe bounty requires account creation via X or Google. Current routes are demo-safe and generate authorization URLs when client IDs exist, but they do not perform provider token exchange, user creation, or a hardened extension handoff.\n\n## Learning objective\n\nImplement real OAuth boundaries while keeping local demo mode available for development.\n\n## Acceptance criteria\n\n- [ ] Google OAuth callback exchanges code for tokens and creates/loads a user.\n- [ ] X OAuth callback exchanges code for tokens and creates/loads a user.\n- [ ] Sessions are stored in KV/D1 with secure cookie settings for production.\n- [ ] Extension can request a short-lived token from an authenticated web session.\n- [ ] Tests cover invalid state, replayed state, unsupported provider, and logout.\n\n## Roadblocks and learning log\n\n- Roadblock: provider client IDs/secrets must be configured outside the repo.\n- Pitfall: demo OAuth must never run in production when `AUTH_MODE=oauth`.\n",
+    "comments": [
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7hnhA",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Closure audit, May 1 2026:\n\nKeep open. This is not only blocked on provider credentials; there is still minimal no-credential auth code to finish before real OAuth can be credible.\n\nNo-credential implementation remaining:\n- In `AUTH_MODE=oauth`, fail closed when provider client IDs/secrets are missing instead of falling back to the local callback URL.\n- Consume and delete stored OAuth state on callback, reject invalid/replayed state, and test both providers with mocked token/profile responses.\n- Replace the hardcoded `usr_demo` session creation with provider account lookup/create against D1 users/oauth_accounts/sessions.\n- Require a valid web session for `/api/auth/extension-token`; issue a short-lived token tied to that user/session; make logout remove/expire the session.\n- Add regression tests for unsupported provider, invalid state, replayed state, missing code, logout, and anonymous extension-token rejection.\n\nCredential/provider blockers:\n- Google OAuth app client ID/secret and callback URL.\n- X OAuth app client ID/secret and callback URL.\n- Production Cloudflare KV/D1 resources and Worker secrets for session/provider config.\n",
+        "createdAt": "2026-05-01T02:01:54Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/24#issuecomment-4357384068",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wM5Q",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Auth status after production deploy, May 1, 2026:\n\nCurrent production config has `AUTH_MODE=oauth`, but no Google/X client IDs or secrets have been installed yet. The route contracts exist, and demo/local behavior is documented, but this issue should stay open until provider credentials, callbacks, token exchange, session hardening, and extension handoff are implemented and smoke-tested.\n\nAcceptance criteria reminder:\n- Google OAuth app configured with the Worker callback URL.\n- X OAuth app configured with the Worker callback URL.\n- Provider client IDs/secrets stored through Cloudflare/GitHub secrets, not committed.\n- `GET /api/auth/{provider}/start` redirects to the provider in production.\n- Callback establishes a session and extension token handoff without leaking state or tokens.\n",
+        "createdAt": "2026-05-01T03:20:57Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/24#issuecomment-4357623013",
+        "viewerDidAuthor": true
+      }
+    ],
+    "labels": [
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnYQw",
+        "name": "type:epic",
+        "description": "Parent issue grouping related delivery work",
+        "color": "5319E7"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZjA",
+        "name": "area:auth",
+        "description": "OAuth, sessions, identity, extension handoff",
+        "color": "F9D0C4"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaNA",
+        "name": "priority:p0",
+        "description": "Critical path for MVP scaffolding",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaWg",
+        "name": "learning-log",
+        "description": "Issue must document learning, roadblocks, and pitfalls",
+        "color": "C5DEF5"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcna7A",
+        "name": "risk:security",
+        "description": "Security, auth, session, abuse, or privacy risk",
+        "color": "8B0000"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33bg",
+        "name": "bounty:gap",
+        "description": "Gap found against bounty.txt requirements",
+        "color": "B60205"
+      }
+    ],
+    "number": 24,
+    "state": "OPEN",
+    "title": "Epic: Real X/Google auth and extension handoff",
+    "updatedAt": "2026-05-01T03:20:57Z",
+    "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/24"
+  },
+  {
+    "body": "Parent: #21\n\n## Bounty discrepancy\n\nThe bounty asks users to either provide a URL or use the current page, then choose start/end times or a text section. Current UI has the skeleton, but URL publish on web is missing and extension start/end values need to drive the API payload.\n\n## Learning objective\n\nBuild the capture journey so a user can publish a source-linked annotation from either web URL input or current-tab extension context.\n\n## Acceptance criteria\n\n- [ ] Web feed has a compact new annotation composer with URL input, text quote, optional media start/end, and commentary.\n- [ ] Extension timecode inputs are stateful and publish the exact entered range.\n- [ ] Extension rejects ranges over 90 seconds before calling the API.\n- [ ] Text selection from content script remains the default when selected text exists.\n- [ ] Tests cover P50 text publish and P95 over-90-second validation at UI and API boundaries.\n\n## Roadblocks and learning log\n\n- Pitfall: timecode fields can look functional while publish still uses fallback values; tests must assert payload shape.\n- Transfer: this feeds permalink, public feed, and claim evidence quality.\n",
+    "comments": [
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7eAWA",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Progress landed locally:\n- Web feed now has a URL capture composer for source URL, title, text quote or media timecodes, and commentary.\n- Extension side panel timecode inputs are stateful and pass the entered range into the publish payload.\n- Extension blocks media ranges above 90 seconds before publish.\n- Content-script selected text remains the default text capture context.\n\nVerification:\n- `npm run typecheck`\n- `npm test -- --run` now includes composer coverage.\n- `npm run build` builds the web client and extension.\n- API smoke publish with a 60-second media range succeeds; 100-second range returns `invalid_annotation`.\n\nLeaving open for real browser extension verification across representative sites before marking the whole capture journey complete.",
+        "createdAt": "2026-05-01T01:42:24Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/23#issuecomment-4357324888",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7eKkg",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Additional regression coverage added after the first progress note:\n- `apps/extension/src/sidepanel/api.test.ts` verifies exact time ranges are sent in the extension publish payload.\n- It verifies >90-second ranges fail before any fetch call.\n- It verifies recorded audio commentary is uploaded before publish and becomes `commentary.kind=audio`.\n\nLatest verification:\n- `npm run typecheck`\n- `npm test -- --run` -> 4 files, 30 tests passing\n- `npm run test:workers`\n- `npm run build`\n\nKeeping this open only for real unpacked-extension browser verification across representative pages.",
+        "createdAt": "2026-05-01T01:43:20Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/23#issuecomment-4357327506",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7hmaA",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Closure audit, May 1 2026:\n\nThis is mostly closeable without external credentials. Current local evidence shows the web URL composer, selected-text path, extension current-tab context, stateful timecodes, and >90 second rejection are implemented and covered by tests/build.\n\nMinimal work before closing:\n- Run and record an unpacked-extension browser pass against at least one article/text-selection page, one page with a `<video>`, and one page with `<audio>` or podcast media.\n- Verify the built extension can publish against the intended API base for the demo. Today the extension publish helper is hardcoded to `http://localhost:8787`, which is fine for local MVP but not enough for a public bounty demo.\n- Capture the smoke evidence in this issue, including one successful text annotation and one successful media-timecode annotation.\n\nNo OAuth or Cloudflare credentials are needed for the remaining browser verification itself, but a public demo will need the deployment/API-base piece from #22/#28.\n",
+        "createdAt": "2026-05-01T02:01:48Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/23#issuecomment-4357383784",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7onSw",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Progress update for the capture journey:\n\n- Extension publish API is no longer hardcoded to localhost. It now reads/writes the API base URL from `chrome.storage.local` and exposes it in the side panel Settings tab.\n- Local and production review can switch API targets without source edits or rebuilds.\n- Web profile follow action is now wired to the existing `/api/follows/:userId` route instead of local-only UI state.\n- Build/test regression blockers were fixed by pinning away from the Vite 8 Rolldown deadlock and splitting Vitest node/web passes.\n\nVerified locally:\n- `npm run typecheck`\n- `npm test`\n- `npm run test:workers`\n- `npm run build`\n\nStill open before closing #23:\n- Browser-level unpacked extension smoke proof from issue #30.\n- Public deployed API URL once Cloudflare resources/secrets are configured.",
+        "createdAt": "2026-05-01T02:40:18Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/23#issuecomment-4357498699",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wL6g",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Capture journey status, May 1, 2026:\n\nThe web/API deployment is no longer the blocker: public Pages and Worker URLs are live, and production smoke created a real annotation, comment, and claim notice.\n\nWhat this epic still owns:\n- Connect browser/UI capture state to payload-level evidence for source URL, selected text, media start/end/duration, and commentary.\n- Make the public web client and extension use the same API contract consistently.\n- Add regression tests around the exact payloads users produce, not just fixture rendering.\n- Document p50 vs p95 proof: p50 is a successful publish; p95 is exact quote/timecode preservation, invalid duration rejection, and source-link integrity under realistic browser use.\n",
+        "createdAt": "2026-05-01T03:20:51Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/23#issuecomment-4357622762",
+        "viewerDidAuthor": true
+      }
+    ],
+    "labels": [
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnYQw",
+        "name": "type:epic",
+        "description": "Parent issue grouping related delivery work",
+        "color": "5319E7"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZOQ",
+        "name": "area:web-client",
+        "description": "Public web app, feed, profile, permalink pages",
+        "color": "C2E0C6"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZTA",
+        "name": "area:chrome-extension",
+        "description": "MV3 extension, side panel, content scripts",
+        "color": "D4C5F9"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnZ2A",
+        "name": "area:media",
+        "description": "Clip refs, uploads, source metadata, media policy",
+        "color": "FEF2C0"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaNA",
+        "name": "priority:p0",
+        "description": "Critical path for MVP scaffolding",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaWg",
+        "name": "learning-log",
+        "description": "Issue must document learning, roadblocks, and pitfalls",
+        "color": "C5DEF5"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33bg",
+        "name": "bounty:gap",
+        "description": "Gap found against bounty.txt requirements",
+        "color": "B60205"
+      }
+    ],
+    "number": 23,
+    "state": "OPEN",
+    "title": "Epic: Complete extension and web capture journey",
+    "updatedAt": "2026-05-01T03:20:52Z",
+    "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/23"
+  },
+  {
+    "body": "Parent: #21\n\n## Bounty discrepancy\n\nThe product is not publicly deployed. The latest audit found no GitHub deployments, no configured Cloudflare GitHub secrets/vars, unresolved `annotated-canvas.pages.dev`, and placeholder production D1/KV IDs.\n\n## Learning objective\n\nUse Wrangler and GitHub CLI to make production setup reproducible from the command line instead of relying on dashboard-only steps.\n\n## Prior knowledge\n\n- `apps/api/wrangler.production.jsonc` is the production Worker config.\n- `.github/workflows/ci.yml` already has a gated deploy job.\n- Cloudflare remote setup requires a logged-in Wrangler session or a CI API token/account ID.\n\n## Practice task\n\nCreate and run a CLI bootstrap that can:\n\n- verify Wrangler auth,\n- create/reuse D1, KV, R2, queues, and Pages project resources,\n- patch production config IDs,\n- run remote D1 migrations,\n- deploy Worker and web build,\n- configure GitHub secrets/vars needed by CI/CD.\n\n## Acceptance criteria\n\n- [ ] `npm run cf:setup:production` exists and documents every required command.\n- [ ] Wrangler auth is verified with `npm run cf:whoami`.\n- [ ] Production D1/KV placeholders are replaced with real IDs.\n- [ ] Remote migrations apply against production D1.\n- [ ] Worker deploy returns a public `.workers.dev` URL.\n- [ ] Web client deploy returns a public Pages URL.\n- [ ] GitHub Actions deploy job runs rather than skips on `main`.\n- [ ] Public smoke tests pass for `/api/health`, feed, permalink, and web root.\n\n## Roadblocks and learning log\n\n- Current roadblock: local Wrangler is not authenticated. A human must complete `wrangler login` or provide a scoped token/account ID.\n- Pitfall: do not enable `CLOUDFLARE_DEPLOY_ENABLED` until resource IDs and secrets are configured, or CI will fail during deploy.\n",
+    "comments": [
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7eAJQ",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Implemented the CLI bootstrap path in this branch: `npm run cf:setup:production` and `npm run cf:deploy:production` now drive Wrangler resource setup/deploy from `scripts/cloudflare/setup-production.mjs`.\n\nVerification:\n- `npm run cf:setup:production` prints the production resource plan and current placeholder IDs.\n- It fails cleanly at the real blocker: Wrangler is not authenticated.\n\nCurrent blocker:\n- `wrangler whoami` returns: not authenticated. There are also no `CLOUDFLARE_*` shell env vars, no GitHub repo secrets, and no GitHub repo vars yet.\n\nNext action after human login/token:\n- `npm exec -- wrangler login`\n- `npm run cf:setup:production -- --apply --pages`\n- export `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN`, then `npm run cf:setup:production -- --apply --github`\n- `npm run cf:deploy:production`",
+        "createdAt": "2026-05-01T01:42:23Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357324837",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7gT3A",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Updated Cloudflare setup for the user's GitHub-first deployment preference.\n\nChanges in this pass:\n- GitHub Actions now supports manual production deploy dispatch on main with a deploy gate.\n-  and  frame GitHub Actions as the production control plane.\n-  can dry-run GitHub deployment wiring without local Wrangler auth.\n-  stores Cloudflare credentials in the GitHub  environment and sets ; secret values are passed via stdin and redacted from command logs.\n\nCurrent blocker remains credentials, not code:\n-  is unset.\n-  is unset.\n- Production D1/KV IDs are still placeholders until Cloudflare resources are created or provided.\n\nVerified:\n- \n> annotated-canvas@0.1.0 cf:setup:production\n> node scripts/cloudflare/setup-production.mjs --github\n\nAnnotated Canvas Cloudflare production bootstrap\nMode: dry run. Add --apply to create resources and patch config.\nPlanned resources:\n- D1: annotated_canvas\n- KV: SESSION_KV\n- R2: annotated-canvas-media\n- Queues: annotated-canvas-jobs, annotated-canvas-dlq\n- Pages project: annotated-canvas\n- GitHub deployment environment: production\nCurrent config IDs: {\"d1Id\":\"REPLACE_WITH_PRODUCTION_D1_DATABASE_ID\",\"kvId\":\"REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID\"}\nGitHub wiring dry run: set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN before using --apply --github.\nGitHub deployment wiring complete. No local Wrangler auth needed for this step. now produces a useful GitHub-first dry run without requiring local Wrangler login.",
+        "createdAt": "2026-05-01T01:54:38Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357362652",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7gdyg",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Corrected GitHub-first Cloudflare setup note.\n\nChanges in this pass:\n- GitHub Actions now supports manual production deploy dispatch on `main` with a deploy gate.\n- `docs/cloudflare-cli.md` and `docs/deployment-devops.md` frame GitHub Actions as the production control plane.\n- `scripts/cloudflare/setup-production.mjs --github` can dry-run GitHub deployment wiring without local Wrangler auth.\n- `--apply --github` stores Cloudflare credentials in the GitHub `production` environment and sets `CLOUDFLARE_DEPLOY_ENABLED=true`; secret values are passed via stdin and redacted from command logs.\n\nCurrent blocker remains credentials, not code:\n- `CLOUDFLARE_ACCOUNT_ID` is unset.\n- `CLOUDFLARE_API_TOKEN` is unset.\n- Production D1/KV IDs are still placeholders until Cloudflare resources are created or provided.\n\nVerified:\n- `npm run cf:setup:production -- --github` now produces a useful GitHub-first dry run without requiring local Wrangler login.\n",
+        "createdAt": "2026-05-01T01:55:30Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357365194",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7iPEQ",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Cloudflare/GitHub deployment readiness update:\n\nChanges in this pass:\n- `.github/workflows/ci.yml` now deploys both Cloudflare surfaces from GitHub: remote D1 migrations, Worker deploy, web build with `VITE_API_BASE_URL` set to the deployed Worker URL, then Cloudflare Pages deploy for `dist/web`.\n- `scripts/cloudflare/setup-production.mjs` local fallback deploy now parses the Worker URL, passes it into the web build, deploys Pages, and prints both Worker and Pages URLs.\n- `docs/cloudflare-cli.md` and `docs/deployment-devops.md` now document the GitHub-first resource/bootstrap sequence, Pages deploy command, and required Pages token permission.\n\nVerified:\n- `npm run cf:setup:production -- --github` dry-runs without local Wrangler auth and reports placeholder D1/KV IDs.\n- `npm run typecheck`\n- `npm test`\n- `npm run test:workers`\n- `npm run build`\n- workflow YAML parses.\n\nCurrent blocker remains credentials/resources, not repo wiring:\n- `npm run cf:whoami` reports: `You are not authenticated. Please run \\`wrangler login\\`.`\n- No `CLOUDFLARE_*` env vars are set in this shell.\n- `gh variable list` returned no repo variables.\n- `gh secret list --env production` returned no visible production environment secrets.\n- `apps/api/wrangler.production.jsonc` still contains placeholder production D1/KV IDs.\n\nCredential-holder next commands:\n\n```bash\ngh auth status\nexport CLOUDFLARE_ACCOUNT_ID=...\nexport CLOUDFLARE_API_TOKEN=...\nnpm run cf:setup:production -- --apply --resources --pages\ngit diff apps/api/wrangler.production.jsonc\nnpm run cf:setup:production -- --apply --github\n```\n\nThen commit the generated production IDs, merge/push to `main`, and run the deploy from GitHub if a push did not already trigger it:\n\n```bash\ngh workflow run \"CI and Deploy\" --ref main -f deploy_production=true\n```\n",
+        "createdAt": "2026-05-01T02:05:07Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357394193",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7qKYg",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "## Cloudflare via GitHub reconciliation\n\nChecked the current Cloudflare docs on May 1, 2026:\n\n- Cloudflare Workers Builds now supports native Git integration for GitHub/GitLab Workers deploys.\n- Cloudflare Pages also supports GitHub/GitLab Git integration with previews and status checks.\n- GitHub Actions deployments still require `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as CI secrets.\n\nDecision for this MVP:\n\nKeep GitHub Actions as the first production control plane because it coordinates the full ordered release path in one gate: typecheck, tests, Worker-runtime tests, build, remote D1 migrations, Worker deploy, web build with the deployed Worker URL, and Pages deploy. Native Cloudflare Git integration can be added later for preview ergonomics, but it should not bypass the migration/smoke sequence.\n\nRepo updates:\n\n- `docs/deployment-devops.md` now documents the Cloudflare native Git integration option and why the first deploy stays GitHub Actions controlled.\n- `docs/cloudflare-cli.md` now mirrors that guidance.\n\nCurrent blocker:\n\n- Playwright dashboard automation hits Cloudflare security verification, so I am not bypassing it.\n- Desktop Chrome is at the GitHub login step for Cloudflare. Human login/2FA/Turnstile is needed before dashboard work can continue.\n- CLI resource setup still needs either local Wrangler auth or a scoped Cloudflare API token.\n",
+        "createdAt": "2026-05-01T02:49:11Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357524066",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7qsHw",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "## CI after deployment-doc updates\n\nPushed the current MVP/deployment commits to `main`:\n\n- `49ddf78` `feat: verify local extension smoke flow`\n- `256a55f` `docs: prepare Cloudflare deployment packet`\n\nGitHub Actions run `25199948055` passed the verification job:\n\n- typecheck passed\n- unit/integration tests passed\n- Worker runtime tests passed\n- build passed\n\nThe production deploy job skipped as expected because `CLOUDFLARE_DEPLOY_ENABLED` is not set to `true` yet. That gate should stay off until production D1/KV IDs are committed and the GitHub `production` environment has valid Cloudflare secrets.\n",
+        "createdAt": "2026-05-01T02:52:06Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357532703",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wJKQ",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Production deployment update, May 1, 2026:\n\nWhat is live now:\n- Worker: https://annotated-canvas-api.jaybhagat841.workers.dev\n- Pages: https://annotated-canvas.pages.dev\n- D1: annotated_canvas / 84bcbb47-3471-4a78-a99d-1f02c19bb2d9\n- KV: SESSION_KV / 46ef271ad63242ea86c3a657f05fa556\n- Queues: annotated-canvas-jobs and annotated-canvas-dlq\n- Pages project: annotated-canvas\n\nRegression and deploy evidence:\n- `npm run typecheck` passed.\n- `npm test` passed.\n- `npm run test:workers` passed.\n- `npm run build` passed, including the Chrome extension artifact.\n- `npm run cf:migrate:production` reports no pending migrations after the production seed migration was applied.\n- `npm run cf:deploy:production` deployed Worker version `3b8e0722-aa50-49a7-86c5-b99869bbd0d0` and Pages deployment `https://45bbbb59.annotated-canvas.pages.dev`.\n- Public smoke verified health, feed, profile, permalink, removed state, comment creation, claim notice creation, and audio upload fallback.\n\nRoadblocks/pitfalls for the learning log:\n- Wrangler KV create emits a JSON id rather than a UUID-shaped value; the setup helper now parses JSON ids.\n- `--deploy --pages` previously tried to reprovision resources because deploy implied apply. The helper now keeps deploy and provisioning separate.\n- R2 creation fails with Cloudflare API code `10042` until R2 is enabled in the account. Production intentionally omits the `MEDIA_BUCKET` binding and returns `status: intent-created` for audio uploads until #26 completes storage.\n- The API originally returned `https://annotated.example` canonical permalinks. The repository now derives `permalink_url` from `APP_ORIGIN`, and the regression test asserts it.\n\nRemaining before this epic closes:\n- Set GitHub `production` environment secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.\n- Set repository variable `CLOUDFLARE_DEPLOY_ENABLED=true`.\n- Prove deploy-from-main through GitHub Actions, not just local Wrangler OAuth.\n",
+        "createdAt": "2026-05-01T03:20:36Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357622057",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wm-w",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Final repository CI update, May 1, 2026:\n\n- Commit `d1f6071` shipped the Cloudflare production config/docs/migration and canonical permalink fix.\n- Commit `ea0755c` upgraded first-party GitHub Actions from `actions/checkout@v4` / `actions/setup-node@v4` to `@v6` after GitHub warned that the v4 actions still run on Node 20.\n- Latest CI run is green: https://github.com/ChaiWithJai/annotated-canvas/actions/runs/25200714666\n- Verify job passed typecheck, unit/integration tests, workerd tests, and build.\n- Deploy job is intentionally skipped because `CLOUDFLARE_DEPLOY_ENABLED` and the production Cloudflare API token are not installed yet.\n\nCurrent close decision: keep this issue open. Local Cloudflare deployment is live and verified, but the issue should close only after deploy-from-main is enabled and proven through GitHub Actions.\n",
+        "createdAt": "2026-05-01T03:23:25Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22#issuecomment-4357629691",
+        "viewerDidAuthor": true
+      }
+    ],
+    "labels": [
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnYQw",
+        "name": "type:epic",
+        "description": "Parent issue grouping related delivery work",
+        "color": "5319E7"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnY9A",
+        "name": "stream:cloudflare-architecture",
+        "description": "Cloudflare services and architecture stream",
+        "color": "F38020"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaNA",
+        "name": "priority:p0",
+        "description": "Critical path for MVP scaffolding",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaWg",
+        "name": "learning-log",
+        "description": "Issue must document learning, roadblocks, and pitfalls",
+        "color": "C5DEF5"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnanA",
+        "name": "risk:platform",
+        "description": "Platform constraint or integration risk",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33bg",
+        "name": "bounty:gap",
+        "description": "Gap found against bounty.txt requirements",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33ng",
+        "name": "area:deployment",
+        "description": "Deployment, CI/CD, and public production hosting",
+        "color": "0366D6"
+      }
+    ],
+    "number": 22,
+    "state": "OPEN",
+    "title": "Epic: Cloudflare CLI production setup and deployment",
+    "updatedAt": "2026-05-01T03:23:25Z",
+    "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/22"
+  },
+  {
+    "body": "## Bounty source\n\nThis issue tracks the current product against the latest local bounty source in `bounty.txt`.\n\n## Current repo evidence\n\n- Local web app and local Worker API run.\n- CI verify is green.\n- Repo is public.\n- No public Cloudflare deployment is live yet.\n- Chrome extension is buildable as an unpacked MV3 side panel.\n\n## Discrepancy table\n\n| Bounty requirement | Current status | Gap |\n| --- | --- | --- |\n| Sidebar Chrome extension | Partial | MV3 side panel exists, but auth handoff, robust current-tab capture, and full media controls are not complete. |\n| Highlight and clip text/audio/video from any website | Partial | Text selection and media reference scaffolds exist; audio/video capture needs real start/end binding and broader page detection. |\n| Add commentary and annotations | Partial | Text commentary publishes; recorded audio commentary is not implemented end to end. |\n| Save annotations to landing page linking back to source | Partial | Permalink view/API exists; production public URL and final source rendering polish are missing. |\n| Public social feed | Partial | Feed exists; public deployment and real data path are missing. |\n| Follow users and engage | Partial | Follow and engagement primitives exist; comments/discussions are not implemented. |\n| Account via X or Google | Partial | Demo OAuth route exists; real provider token exchange and configured secrets are missing. |\n| User can input URL or use current page | Partial | Current-tab extension context exists; web URL input/publish flow is missing. |\n| Prompt for clip start/end or text section | Partial | UI shows fields, but extension publish currently does not fully bind user-entered start/end. |\n| Max clip size 90 seconds | Implemented | Contract/API reject media clips above 90 seconds. |\n| Downgrade clip to 240p / below 480p | Missing/decision needed | Current architecture stores third-party media as references only; owned uploads need a Cloudflare Stream/processing plan. |\n| Text or recorded audio commentary | Partial | Text works; recorded audio capture/upload/publish is missing. |\n| Users can leave comments | Missing | No comments contract/API/UI yet. |\n| File a claim button | Partial | Claim modal/API exists; status page/events and production delivery are incomplete. |\n| All content links to original source | Implemented for third-party contracts | Zod contract rejects third-party clips without source attribution. |\n| Submit to annotated.lovable.app | Missing | Needs public deployed URL and submission checklist. |\n\n## Child work\n\n- #22 Cloudflare CLI production setup and deployment\n- #23 Complete extension and web capture journey\n- #24 Real X/Google auth and extension handoff\n- #25 Public feed, comments, follows, and engagement parity\n- #26 Audio commentary and 240p media policy\n- #27 Harden claim filing into a reviewable notice workflow\n- #28 Prepare final bounty submission package\n\n## Learning objective\n\nConvert the bounty thread into executable delivery criteria so every new issue teaches a contributor exactly what must change and why.\n\n## Acceptance criteria\n\n- [ ] Every gap above is represented by a child implementation issue or an explicit product decision.\n- [ ] Child issues include bounty-specific acceptance criteria and regression evidence.\n- [ ] Public deployment issue records the Cloudflare CLI commands, resource IDs needed, and current authentication blocker.\n- [ ] This issue closes only when the deployed product can be submitted for the bounty.\n\n## Roadblocks and learning log\n\n- Roadblock: Cloudflare CLI is installed but not authenticated; `wrangler whoami` currently requires login.\n- Decision: third-party media should remain source-linked by default; 240p handling must be clarified as embed/transform for owned media versus third-party references.\n",
+    "comments": [
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7eaeA",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Bounty gap pass pushed in commit `1963955`.\n\nFiled child issues:\n- #22 Cloudflare CLI production setup and deployment\n- #23 Complete extension and web capture journey\n- #24 Real X/Google auth and extension handoff\n- #25 Public feed/comments/follows/engagement parity — closed locally\n- #26 Audio commentary and 240p media policy\n- #27 Claim filing review workflow — closed locally\n- #28 Final bounty submission package\n\nRepo artifact added: `docs/bounty-gap-audit.md`.\n\nLatest verification:\n- Local `npm run typecheck`\n- Local `npm test -- --run` -> 4 files, 30 tests passing\n- Local `npm run test:workers`\n- Local `npm run build`\n- GitHub Actions run 25198282018 is green for verify; deploy job skipped because Cloudflare deploy is intentionally gated and auth/secrets are not configured.\n\nCurrent blocker for full bounty readiness remains production deployment/auth: Wrangler is not authenticated locally and GitHub has no Cloudflare secrets or deploy variable yet.",
+        "createdAt": "2026-05-01T01:44:44Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/21#issuecomment-4357331576",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7hktA",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Closure audit, May 1 2026:\n\nInspected #23, #24, #26, #28 plus the current web app, Worker API, and MV3 extension. Local verification still passes:\n- `npm run typecheck`\n- `npm test` -> 4 files, 30 tests passing\n- `npm run test:workers` -> 1 file, 1 test passing\n- `npm run build`\n\nCurrent closure map:\n- Closeable without external credentials: #23 after real unpacked-extension browser verification and production API-base handling; most web/extension capture, source attribution, timecode, comments, claims, and feed behavior exists locally.\n- Keep open for product/code work: #24 auth/session/extension-token hardening; #26 audio asset finalization and 240p owned-media policy; #28 submission package.\n- Blocked by external credentials/resources: Cloudflare production D1/KV/R2/Queues/Pages IDs and deploy token/account, Google/X OAuth apps and secrets, and Cloudflare Stream/owned-video settings if the owned-upload path is required.\n\nAdditional local audit note: the web profile follow button currently toggles local React state only while the API follow route exists, so follow parity is not fully proven from the UI yet. Production deployment is still blocked: `apps/api/wrangler.production.jsonc` has placeholder D1/KV IDs, repo/environment secret and variable lists are empty, `wrangler whoami` reports not authenticated, and the latest CI verify run is green while production deploy is skipped.\n",
+        "createdAt": "2026-05-01T02:01:39Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/21#issuecomment-4357383348",
+        "viewerDidAuthor": true
+      },
+      {
+        "id": "IC_kwDOSRRxuc8AAAABA7wJKg",
+        "author": {
+          "login": "ChaiWithJai"
+        },
+        "authorAssociation": "OWNER",
+        "body": "Bounty readiness audit update, May 1, 2026:\n\nCloseable/complete areas:\n- Public deployment is live on Cloudflare Pages and Workers.\n- Public feed/profile/permalink/removed routes return `200`.\n- Public comments and claim notice intake are smoke-tested.\n- Max 90-second media validation remains covered by regression tests.\n- Canonical API permalinks now reconcile to the public Pages hostname.\n\nStill open against `bounty.txt`:\n- #23: exact UI-to-payload proof for selected text, current page, and media timecode capture.\n- #24: real X/Google OAuth credentials and callback exchange.\n- #26: recorded audio commentary storage and 240p/sub-480p owned-media policy.\n- #30: local Chrome extension p95 smoke proof beyond the current unpacked side-panel/current-page proof.\n- #22: CI/CD deploy-from-main through GitHub Actions after a scoped Cloudflare API token is installed.\n\nProfessional release stance: we have a live MVP, but not a fully closed bounty implementation. The submission should state the p50 product surfaces that work and explicitly name the p95 gaps instead of overclaiming.\n",
+        "createdAt": "2026-05-01T03:20:36Z",
+        "includesCreatedEdit": false,
+        "isMinimized": false,
+        "minimizedReason": "",
+        "reactionGroups": [],
+        "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/21#issuecomment-4357622058",
+        "viewerDidAuthor": true
+      }
+    ],
+    "labels": [
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnYQw",
+        "name": "type:epic",
+        "description": "Parent issue grouping related delivery work",
+        "color": "5319E7"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaNA",
+        "name": "priority:p0",
+        "description": "Critical path for MVP scaffolding",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChcnaWg",
+        "name": "learning-log",
+        "description": "Issue must document learning, roadblocks, and pitfalls",
+        "color": "C5DEF5"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc33bg",
+        "name": "bounty:gap",
+        "description": "Gap found against bounty.txt requirements",
+        "color": "B60205"
+      },
+      {
+        "id": "LA_kwDOSRRxuc8AAAAChc34KQ",
+        "name": "area:bounty-submission",
+        "description": "Submission readiness for the Annotated bounty",
+        "color": "FBCA04"
+      }
+    ],
+    "number": 21,
+    "state": "OPEN",
+    "title": "Epic: Bounty gap audit and submission readiness",
+    "updatedAt": "2026-05-01T03:20:36Z",
+    "url": "https://github.com/ChaiWithJai/annotated-canvas/issues/21"
+  }
+]

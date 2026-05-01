@@ -23,7 +23,9 @@ export interface Env {
   SERVICE_MODE?: string;
   AUTH_MODE?: "demo" | "oauth";
   GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
   X_CLIENT_ID?: string;
+  X_CLIENT_SECRET?: string;
   DB?: D1Database;
   SESSION_KV?: KVNamespace;
   MEDIA_BUCKET?: R2Bucket;

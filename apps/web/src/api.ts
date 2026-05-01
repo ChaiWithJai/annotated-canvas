@@ -13,10 +13,79 @@ export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://localhost:8787" : "");
 const shouldFetch = import.meta.env.MODE !== "test";
 
+export type AuthProvider = "google" | "x";
+export type ViewerSession = {
+  user: Pick<UserResource, "id" | "handle" | "display_name" | "avatar_url"> | null;
+  auth?: {
+    providers?: AuthProvider[];
+    extension_token_supported?: boolean;
+  };
+};
+
+type ErrorEnvelope = {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+};
+
+export class ApiRequestError extends Error {
+  readonly status: number;
+  readonly code?: string;
+
+  constructor(status: number, message: string, code?: string) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`);
   if (!response.ok) throw new Error(`GET ${path} failed`);
   return response.json() as Promise<T>;
+}
+
+async function requestError(response: Response, fallback: string): Promise<ApiRequestError> {
+  try {
+    const payload = (await response.json()) as ErrorEnvelope;
+    return new ApiRequestError(response.status, payload.error?.message ?? fallback, payload.error?.code);
+  } catch {
+    return new ApiRequestError(response.status, fallback);
+  }
+}
+
+export async function loadCurrentViewer(): Promise<ViewerSession> {
+  const response = await fetch(`${API_BASE}/api/me`, {
+    credentials: "include"
+  });
+
+  if (response.status === 401 || response.status === 403) return { user: null };
+  if (!response.ok) throw await requestError(response, "Could not check sign-in status.");
+
+  const payload = (await response.json()) as ViewerSession;
+  return {
+    user: payload.user ?? null,
+    auth: payload.auth
+  };
+}
+
+export async function startAuth(provider: AuthProvider, returnTo: string): Promise<string> {
+  const search = new URLSearchParams({ return_to: returnTo });
+  const response = await fetch(`${API_BASE}/api/auth/${provider}/start?${search.toString()}`, {
+    method: "GET"
+  });
+
+  if (!response.ok) {
+    throw await requestError(response, `Could not start ${provider === "google" ? "Google" : "X"} sign-in.`);
+  }
+
+  const payload = (await response.json()) as { authorization_url?: string };
+  if (!payload.authorization_url) {
+    throw new ApiRequestError(response.status, "Sign-in is not configured for this provider yet.", "auth_not_configured");
+  }
+  return payload.authorization_url;
 }
 
 export async function loadFeed(): Promise<AnnotationResource[]> {
