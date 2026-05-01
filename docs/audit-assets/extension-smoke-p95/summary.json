@@ -1,0 +1,405 @@
+{
+  "generated_at": "2026-05-01T13:29:55.728Z",
+  "extensionPath": "/tmp/ac-extension-build",
+  "outputDir": "/tmp/annotated-canvas-extension-smoke-p95",
+  "apiBase": "https://annotated-canvas-api.jaybhagat841.workers.dev",
+  "webBase": "https://annotated-canvas.pages.dev",
+  "evidence": {
+    "settingsProduction": "/tmp/annotated-canvas-extension-smoke-p95/settings-production-api.png",
+    "p50Ready": "/tmp/annotated-canvas-extension-smoke-p95/p50-ready-to-publish.png",
+    "p50Published": "/tmp/annotated-canvas-extension-smoke-p95/p50-published.png",
+    "mediaReady": "/tmp/annotated-canvas-extension-smoke-p95/media-ready-to-publish.png",
+    "mediaPublished": "/tmp/annotated-canvas-extension-smoke-p95/media-published.png",
+    "over90Rejected": "/tmp/annotated-canvas-extension-smoke-p95/over90-rejected.png",
+    "selectedTextReady": "/tmp/annotated-canvas-extension-smoke-p95/selected-text-ready-to-publish.png",
+    "selectedTextPublished": "/tmp/annotated-canvas-extension-smoke-p95/selected-text-published.png"
+  },
+  "extensionId": "gojpgkofjmhgjbiacgblaegbpcacgnpa",
+  "p50Context": {
+    "source_url": "https://example.com/",
+    "title": "Example Domain",
+    "selection_text": ""
+  },
+  "p50Publish": {
+    "commentary": "Extension production p50 smoke 1777642196090: side panel captured example.com and published through the Cloudflare Worker.",
+    "request": {
+      "url": "https://annotated-canvas-api.jaybhagat841.workers.dev/api/annotations",
+      "method": "POST",
+      "postData": {
+        "clip": {
+          "kind": "video",
+          "source": {
+            "source_url": "https://example.com/",
+            "source_domain": "example.com",
+            "title": "Example Domain"
+          },
+          "media": {
+            "start_seconds": 263,
+            "end_seconds": 310,
+            "duration_seconds": 47
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension production p50 smoke 1777642196090: side panel captured example.com and published through the Cloudflare Worker."
+        },
+        "visibility": "public",
+        "client_context": {
+          "surface": "extension",
+          "capture_method": "media-timecode"
+        }
+      }
+    },
+    "response": {
+      "annotation": {
+        "id": "ann_a7093956-675f-4580-9d1f-5c85f3d8dff2",
+        "author_id": "usr_demo",
+        "author": {
+          "id": "usr_demo",
+          "handle": "mira",
+          "display_name": "Mira Chen",
+          "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+          "bio": "Researcher collecting precise media moments."
+        },
+        "clip": {
+          "kind": "video",
+          "source": {
+            "source_url": "https://example.com/",
+            "source_domain": "example.com",
+            "title": "Example Domain"
+          },
+          "media": {
+            "start_seconds": 263,
+            "end_seconds": 310,
+            "duration_seconds": 47
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension production p50 smoke 1777642196090: side panel captured example.com and published through the Cloudflare Worker."
+        },
+        "visibility": "public",
+        "created_at": "2026-05-01T13:29:56.239Z",
+        "updated_at": "2026-05-01T13:29:56.239Z",
+        "permalink_url": "https://annotated-canvas.pages.dev/a/ann_a7093956-675f-4580-9d1f-5c85f3d8dff2",
+        "engagement": {
+          "likes": 0,
+          "reposts": 0,
+          "discussions": 0,
+          "viewer_has_liked": false
+        }
+      }
+    }
+  },
+  "mediaContext": {
+    "source_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+    "title": "",
+    "selection_text": "",
+    "media": {
+      "current_time": 5.055,
+      "duration": 5.055,
+      "kind": "video"
+    }
+  },
+  "mediaProbe": {
+    "currentTime": 5.055,
+    "tagName": "VIDEO",
+    "duration": 5.055
+  },
+  "mediaPublish": {
+    "commentary": "Extension media-time smoke 1777642197482: top-level video currentTime seeded the side panel range.",
+    "seededStart": "00:00:05",
+    "seededEnd": "00:00:52",
+    "request": {
+      "url": "https://annotated-canvas-api.jaybhagat841.workers.dev/api/annotations",
+      "method": "POST",
+      "postData": {
+        "clip": {
+          "kind": "video",
+          "source": {
+            "source_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+            "source_domain": "interactive-examples.mdn.mozilla.net",
+            "title": "Untitled source"
+          },
+          "media": {
+            "start_seconds": 5,
+            "end_seconds": 52,
+            "duration_seconds": 47
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension media-time smoke 1777642197482: top-level video currentTime seeded the side panel range."
+        },
+        "visibility": "public",
+        "client_context": {
+          "surface": "extension",
+          "capture_method": "media-timecode"
+        }
+      }
+    },
+    "response": {
+      "annotation": {
+        "id": "ann_e537cae5-15f0-4dff-808b-219e134a801e",
+        "author_id": "usr_demo",
+        "author": {
+          "id": "usr_demo",
+          "handle": "mira",
+          "display_name": "Mira Chen",
+          "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+          "bio": "Researcher collecting precise media moments."
+        },
+        "clip": {
+          "kind": "video",
+          "source": {
+            "source_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+            "source_domain": "interactive-examples.mdn.mozilla.net",
+            "title": "Untitled source"
+          },
+          "media": {
+            "start_seconds": 5,
+            "end_seconds": 52,
+            "duration_seconds": 47
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension media-time smoke 1777642197482: top-level video currentTime seeded the side panel range."
+        },
+        "visibility": "public",
+        "created_at": "2026-05-01T13:29:57.583Z",
+        "updated_at": "2026-05-01T13:29:57.583Z",
+        "permalink_url": "https://annotated-canvas.pages.dev/a/ann_e537cae5-15f0-4dff-808b-219e134a801e",
+        "engagement": {
+          "likes": 0,
+          "reposts": 0,
+          "discussions": 0,
+          "viewer_has_liked": false
+        }
+      }
+    }
+  },
+  "over90Rejection": {
+    "start": "00:00:00",
+    "end": "00:01:31",
+    "error": "Clip length must be 90 seconds or less.",
+    "postCountAfterClick": 0
+  },
+  "selectedContext": {
+    "source_url": "https://example.com/",
+    "title": "Example Domain",
+    "selection_text": "This domain is for use in documentation examples without needing permission. Avoid use in operations."
+  },
+  "selectedTextPublish": {
+    "selectedText": "This domain is for use in documentation examples without needing permission. Avoid use in operations.",
+    "commentary": "Extension selected-text smoke 1777642199139: exact quote preserved from source page.",
+    "request": {
+      "url": "https://annotated-canvas-api.jaybhagat841.workers.dev/api/annotations",
+      "method": "POST",
+      "postData": {
+        "clip": {
+          "kind": "text",
+          "source": {
+            "source_url": "https://example.com/",
+            "source_domain": "example.com",
+            "title": "Example Domain"
+          },
+          "text": {
+            "quote": "This domain is for use in documentation examples without needing permission. Avoid use in operations."
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension selected-text smoke 1777642199139: exact quote preserved from source page."
+        },
+        "visibility": "public",
+        "client_context": {
+          "surface": "extension",
+          "capture_method": "selection"
+        }
+      }
+    },
+    "response": {
+      "annotation": {
+        "id": "ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6",
+        "author_id": "usr_demo",
+        "author": {
+          "id": "usr_demo",
+          "handle": "mira",
+          "display_name": "Mira Chen",
+          "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+          "bio": "Researcher collecting precise media moments."
+        },
+        "clip": {
+          "kind": "text",
+          "source": {
+            "source_url": "https://example.com/",
+            "source_domain": "example.com",
+            "title": "Example Domain"
+          },
+          "text": {
+            "quote": "This domain is for use in documentation examples without needing permission. Avoid use in operations."
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension selected-text smoke 1777642199139: exact quote preserved from source page."
+        },
+        "visibility": "public",
+        "created_at": "2026-05-01T13:29:59.249Z",
+        "updated_at": "2026-05-01T13:29:59.249Z",
+        "permalink_url": "https://annotated-canvas.pages.dev/a/ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6",
+        "engagement": {
+          "likes": 0,
+          "reposts": 0,
+          "discussions": 0,
+          "viewer_has_liked": false
+        }
+      }
+    }
+  },
+  "audioUpload": {
+    "status": 200,
+    "body": {
+      "upload": {
+        "id": "upl_3db82f3d-f638-4146-8c2b-9fe415934d8c",
+        "asset_id": "upl_3db82f3d-f638-4146-8c2b-9fe415934d8c",
+        "kind": "audio-commentary",
+        "storage": "r2",
+        "r2_key": "audio-commentary/upl_3db82f3d-f638-4146-8c2b-9fe415934d8c.webm",
+        "max_bytes": 26214400,
+        "status": "intent-created"
+      }
+    }
+  },
+  "p50StoredAnnotation": {
+    "apiStatus": 200,
+    "body": {
+      "annotation": {
+        "id": "ann_a7093956-675f-4580-9d1f-5c85f3d8dff2",
+        "author_id": "usr_demo",
+        "author": {
+          "id": "usr_demo",
+          "handle": "mira",
+          "display_name": "Mira Chen",
+          "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+          "bio": "Researcher collecting precise media moments."
+        },
+        "clip": {
+          "kind": "video",
+          "source": {
+            "source_url": "https://example.com/",
+            "source_domain": "example.com",
+            "title": "Example Domain"
+          },
+          "media": {
+            "start_seconds": 263,
+            "end_seconds": 310,
+            "duration_seconds": 47
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension production p50 smoke 1777642196090: side panel captured example.com and published through the Cloudflare Worker."
+        },
+        "visibility": "public",
+        "created_at": "2026-05-01T13:29:56.239Z",
+        "updated_at": "2026-05-01T13:29:56.239Z",
+        "permalink_url": "https://annotated-canvas.pages.dev/a/ann_a7093956-675f-4580-9d1f-5c85f3d8dff2",
+        "engagement": {
+          "likes": 0,
+          "reposts": 0,
+          "discussions": 0,
+          "viewer_has_liked": false
+        }
+      }
+    },
+    "permalinkStatus": 200
+  },
+  "mediaStoredAnnotation": {
+    "apiStatus": 200,
+    "body": {
+      "annotation": {
+        "id": "ann_e537cae5-15f0-4dff-808b-219e134a801e",
+        "author_id": "usr_demo",
+        "author": {
+          "id": "usr_demo",
+          "handle": "mira",
+          "display_name": "Mira Chen",
+          "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+          "bio": "Researcher collecting precise media moments."
+        },
+        "clip": {
+          "kind": "video",
+          "source": {
+            "source_url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+            "source_domain": "interactive-examples.mdn.mozilla.net",
+            "title": "Untitled source"
+          },
+          "media": {
+            "start_seconds": 5,
+            "end_seconds": 52,
+            "duration_seconds": 47
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension media-time smoke 1777642197482: top-level video currentTime seeded the side panel range."
+        },
+        "visibility": "public",
+        "created_at": "2026-05-01T13:29:57.583Z",
+        "updated_at": "2026-05-01T13:29:57.583Z",
+        "permalink_url": "https://annotated-canvas.pages.dev/a/ann_e537cae5-15f0-4dff-808b-219e134a801e",
+        "engagement": {
+          "likes": 0,
+          "reposts": 0,
+          "discussions": 0,
+          "viewer_has_liked": false
+        }
+      }
+    },
+    "permalinkStatus": 200
+  },
+  "selectedTextStoredAnnotation": {
+    "apiStatus": 200,
+    "body": {
+      "annotation": {
+        "id": "ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6",
+        "author_id": "usr_demo",
+        "author": {
+          "id": "usr_demo",
+          "handle": "mira",
+          "display_name": "Mira Chen",
+          "avatar_url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=160&q=80",
+          "bio": "Researcher collecting precise media moments."
+        },
+        "clip": {
+          "kind": "text",
+          "source": {
+            "source_url": "https://example.com/",
+            "source_domain": "example.com",
+            "title": "Example Domain"
+          },
+          "text": {
+            "quote": "This domain is for use in documentation examples without needing permission. Avoid use in operations."
+          }
+        },
+        "commentary": {
+          "kind": "text",
+          "text": "Extension selected-text smoke 1777642199139: exact quote preserved from source page."
+        },
+        "visibility": "public",
+        "created_at": "2026-05-01T13:29:59.249Z",
+        "updated_at": "2026-05-01T13:29:59.249Z",
+        "permalink_url": "https://annotated-canvas.pages.dev/a/ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6",
+        "engagement": {
+          "likes": 0,
+          "reposts": 0,
+          "discussions": 0,
+          "viewer_has_liked": false
+        }
+      }
+    },
+    "permalinkStatus": 200
+  }
+}
