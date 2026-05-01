@@ -18,7 +18,10 @@ export CLOUDFLARE_ACCOUNT_ID=...
 export CLOUDFLARE_API_TOKEN=...
 npm run cf:setup:production -- --apply --resources --pages
 git diff apps/api/wrangler.production.jsonc
-npm run cf:setup:production -- --apply --github
+gh api --method PUT repos/ChaiWithJai/annotated-canvas/environments/production
+printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | gh secret set CLOUDFLARE_ACCOUNT_ID --env production --body-file -
+printf '%s' "$CLOUDFLARE_API_TOKEN" | gh secret set CLOUDFLARE_API_TOKEN --env production --body-file -
+gh variable set CLOUDFLARE_DEPLOY_ENABLED --body false
 ```
 
 Omit `--pages` when the Cloudflare Pages project already exists. If D1 and KV were created outside this script, update `apps/api/wrangler.production.jsonc` with those IDs before enabling the GitHub deploy gate.
@@ -61,7 +64,46 @@ export CLOUDFLARE_API_TOKEN=...
 npm run cf:setup:production -- --apply --github
 ```
 
-When `--github` is present, the script creates or reuses the GitHub `production` environment, stores Cloudflare credentials there, and enables the repository-level `CLOUDFLARE_DEPLOY_ENABLED` gate. Use `CLOUDFLARE_GITHUB_ENVIRONMENT=...` to target a different GitHub environment. Configure required reviewers for that environment in GitHub repo settings before enabling unattended production deploys.
+When `--github` is present, the script creates or reuses the GitHub `production` environment, stores Cloudflare credentials there, and enables the repository-level `CLOUDFLARE_DEPLOY_ENABLED` gate. For a more conservative rollout, run the explicit `gh` commands above, keep `CLOUDFLARE_DEPLOY_ENABLED=false`, confirm required reviewers on the `production` environment, then set the gate to `true` only when the account owner approves the first deploy-from-main. Use `CLOUDFLARE_GITHUB_ENVIRONMENT=...` to target a different GitHub environment.
+
+## Required Cloudflare API Token
+
+Create a custom Cloudflare user API token scoped to the single production account. Cloudflare's GitHub Actions documentation requires `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` for non-interactive Wrangler deploys, and Cloudflare recommends scoping tokens down to only the account and zone resources needed.
+
+Required account permissions for this MVP workflow:
+
+| Scope | Permission | Why |
+| --- | --- | --- |
+| Account | Account Settings: Read | Lets Wrangler resolve account-level settings during deploy. |
+| Account | Workers Scripts: Edit | Deploys `annotated-canvas-api` and its bindings. |
+| Account | Cloudflare Pages: Edit | Deploys the `annotated-canvas` Pages project. |
+| Account | D1: Edit | Applies production D1 migrations. |
+| Account | Workers KV Storage: Edit | Reads and manages the production `SESSION_KV` binding. |
+| Account | Queues: Edit | Deploys Worker queue producer/consumer bindings. |
+| User | User Details: Read | Lets Wrangler identify the token user. |
+| User | Memberships: Read | Lets Wrangler verify account membership for user tokens. |
+
+Do not include zone resources for the current `workers.dev` and `pages.dev` deployment. Add `Zone > Workers Routes: Edit` only when a custom domain route is introduced, scoped to that one zone. Add `Account > Workers R2 Storage: Edit` only after R2 is enabled and the production `MEDIA_BUCKET` binding is restored. Durable Object migrations are carried by the Worker deploy; Cloudflare does not expose a separate Durable Objects API-token permission in the current permission table.
+
+Store the token only in the GitHub `production` environment:
+
+```bash
+gh api --method PUT repos/ChaiWithJai/annotated-canvas/environments/production
+printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | gh secret set CLOUDFLARE_ACCOUNT_ID --env production --body-file -
+printf '%s' "$CLOUDFLARE_API_TOKEN" | gh secret set CLOUDFLARE_API_TOKEN --env production --body-file -
+gh variable set CLOUDFLARE_DEPLOY_ENABLED --body false
+gh secret list --env production
+gh variable get CLOUDFLARE_DEPLOY_ENABLED
+```
+
+After the production environment has required reviewers and the owner approves deploy-from-main:
+
+```bash
+gh variable set CLOUDFLARE_DEPLOY_ENABLED --body true
+gh workflow run "CI and Deploy" --ref main -f deploy_production=true
+```
+
+`cloudflare_production_preflight` now reports whether the deploy gate, trigger, and visible secret names are ready. The production job repeats the same preflight inside the GitHub `production` environment and fails before any Wrangler command if `CLOUDFLARE_ACCOUNT_ID` or `CLOUDFLARE_API_TOKEN` is missing.
 
 Resource creation and production config patching still need Cloudflare API access through Wrangler. Use this when the target account is available from the CLI:
 
@@ -88,7 +130,7 @@ npm run cf:setup:production -- --apply --github
 gh workflow run "CI and Deploy" --ref main -f deploy_production=true
 ```
 
-This is HITL-required because the token value and approval to enable `CLOUDFLARE_DEPLOY_ENABLED=true` must come from the account owner. Without those credentials, engineers can still run dry runs, verify workflow conditions, update docs, and confirm the latest verification job status.
+This is HITL-required because the token value and approval to enable `CLOUDFLARE_DEPLOY_ENABLED=true` must come from the account owner. Without those credentials, engineers can still run dry runs, verify workflow conditions, update docs, and confirm the latest verification job status. Keep the repository variable at `false` until the secrets are present and the first production deploy has an assigned reviewer.
 
 Auth and media gates are separate:
 
@@ -118,3 +160,5 @@ The first Worker runs services in-process so local development stays simple. Whe
 - Queues JavaScript APIs: https://developers.cloudflare.com/queues/configuration/javascript-apis/
 - Queues dead-letter queues: https://developers.cloudflare.com/queues/configuration/dead-letter-queues/
 - D1 Worker API: https://developers.cloudflare.com/d1/worker-api/d1-database/
+- Cloudflare API token permissions: https://developers.cloudflare.com/fundamentals/api/reference/permissions/
+- Cloudflare GitHub Actions authentication: https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/
