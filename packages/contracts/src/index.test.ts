@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  AUDIO_COMMENTARY_MAX_BYTES,
   AnnotationCreateSchema,
+  AudioCommentaryUploadResponseSchema,
   ClaimCreateSchema,
   ClaimEventCreateSchema,
   ClipRefSchema,
   CommentCreateSchema,
+  OwnedVideoUploadIntentResponseSchema,
   fixtures
 } from "./index";
 
@@ -40,6 +43,38 @@ describe("contract validation", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects p95 third-party media payloads that include upload storage fields", () => {
+    const result = ClipRefSchema.safeParse({
+      kind: "video",
+      source: fixtures.sources.youtube,
+      media: {
+        start_seconds: 5,
+        end_seconds: 60,
+        duration_seconds: 55
+      },
+      upload: {
+        asset_id: "upl_third_party_copy",
+        stream_uid: "stream_third_party_copy",
+        owned_by_author: true
+      }
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("requires creator-owned attestation for upload clip references", () => {
+    const result = ClipRefSchema.safeParse({
+      kind: "upload",
+      upload: {
+        asset_id: "upl_owned_video",
+        stream_uid: "stream_owned_video",
+        owned_by_author: false
+      }
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("rejects p95 third-party clips without source attribution", () => {
     const result = ClipRefSchema.safeParse({
       kind: "text",
@@ -47,6 +82,60 @@ describe("contract validation", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("accepts p50 audio commentary only when an audio asset id is present", () => {
+    const result = AnnotationCreateSchema.safeParse({
+      clip: fixtures.annotations[0].clip,
+      commentary: {
+        kind: "audio",
+        text: "Recorded commentary transcript note.",
+        audio_asset_id: "upl_audio_commentary"
+      },
+      visibility: "public",
+      client_context: { surface: "extension", capture_method: "media-timecode" }
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects p95 audio commentary without an audio asset id", () => {
+    const result = AnnotationCreateSchema.safeParse({
+      clip: fixtures.annotations[0].clip,
+      commentary: {
+        kind: "audio",
+        text: "Missing upload metadata should fail."
+      },
+      visibility: "public",
+      client_context: { surface: "extension", capture_method: "media-timecode" }
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("documents the current audio upload response as intent or stored, not finalized", () => {
+    const result = AudioCommentaryUploadResponseSchema.parse({
+      id: "upl_audio",
+      asset_id: "upl_audio",
+      kind: "audio-commentary",
+      storage: "r2",
+      r2_key: "audio-commentary/upl_audio.webm",
+      max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+      status: "intent-created"
+    });
+
+    expect(result.status).toBe("intent-created");
+  });
+
+  it("documents owned-video uploads as intent-only until 240p processing exists", () => {
+    const result = OwnedVideoUploadIntentResponseSchema.parse({
+      id: "upl_video",
+      kind: "owned-video",
+      storage: "stream",
+      status: "intent-created"
+    });
+
+    expect(result.status).toBe("intent-created");
   });
 
   it("keeps claim filing as notice intake with concrete claimant evidence", () => {

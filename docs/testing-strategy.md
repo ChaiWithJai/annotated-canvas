@@ -92,6 +92,10 @@ These should be fewer than integration tests and focused on confidence in the co
 - P95 missing source attribution rejection.
 - P95 media duration cap rejection.
 - P95 claim-as-notice behavior test.
+- P95 missing audio commentary asset rejection at contract and API router layers.
+- P95 third-party media payloads cannot carry upload storage fields.
+- P50 audio upload route response is truthfully an intent when durable storage is unbound.
+- P50 owned-video upload route response is intent-only until 240p processing is implemented.
 
 ## Cloudflare Nuance To Test Next
 
@@ -99,3 +103,27 @@ These should be fewer than integration tests and focused on confidence in the co
 - Queue duplicate message is acknowledged without duplicate side effects.
 - Durable Object counter is per annotation, not global.
 - KV cache miss falls back to D1 without changing source-of-truth behavior.
+
+## Audio And 240p Trophy Coverage
+
+Current p50 coverage:
+
+- Text commentary publishes and renders through API/web contracts.
+- Audio recording can produce a browser blob in the extension when `MediaRecorder` and microphone permission are available.
+- `POST /api/uploads/audio-commentary` returns a documented intent/stored response shape with a 25 MB advertised limit.
+- Third-party audio/video clips preserve source URL plus start/end/duration and remain reference-only.
+
+Current p95 coverage:
+
+- Media references over 90 seconds fail shared contract and API validation.
+- `commentary.kind=audio` without `audio_asset_id` fails shared contract and API validation.
+- Third-party media references reject upload/storage fields, so copied third-party media cannot be smuggled through `kind=video` or `kind=audio`.
+- `kind=upload` requires `owned_by_author=true`.
+
+Remaining p95 gaps for #26:
+
+- Oversized audio bodies must be rejected before storage, not only documented through `max_bytes`.
+- Unsupported audio content types must be rejected before storage.
+- Audio upload metadata/finalize state must be persisted and checked during annotation publish.
+- Production permalink loading must prove recorded audio is durable and playable or signed/proxied as decided.
+- Owned-video upload must either enforce a <=240p/sub-480p rendition path or be explicitly excluded from the bounty submission.
