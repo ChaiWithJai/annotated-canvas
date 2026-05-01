@@ -22,6 +22,8 @@ import {
 
 type View = "home" | "feed" | "profile" | "annotation" | "empty" | "removed" | "signup";
 type ViewerState = "loading" | "signed-in" | "signed-out";
+const REVIEWER_GUIDE_URL =
+  "https://github.com/ChaiWithJai/annotated-canvas/blob/main/docs/reviewer-journey.md";
 
 function clipSource(clip: AnnotationResource["clip"]) {
   return "source" in clip ? clip.source : undefined;
@@ -350,12 +352,44 @@ export function App() {
               <button type="button" onClick={() => navigate("feed")}>
                 View public feed
               </button>
+              <a href={REVIEWER_GUIDE_URL} target="_blank" rel="noreferrer">
+                Extension install guide
+              </a>
             </div>
             {authError ? (
-              <p className="auth-error" role="alert">
-                {authError}
-              </p>
+              <div className="auth-recovery" role="alert">
+                <strong>{authError}</strong>
+                <p>For review, load the unpacked extension and use the production API in Settings.</p>
+                <div className="auth-recovery__actions">
+                  <button type="button" onClick={() => navigate("feed")}>
+                    View feed
+                  </button>
+                  <a href={REVIEWER_GUIDE_URL} target="_blank" rel="noreferrer">
+                    Install extension
+                  </a>
+                </div>
+              </div>
             ) : null}
+            <section className="review-path" aria-label="Reviewer path">
+              <div>
+                <p className="eyebrow">Review path</p>
+                <h3>See the feed, load the extension, publish, return.</h3>
+              </div>
+              <ol className="review-path__steps">
+                <li>
+                  <span>1</span>
+                  <p>Open the public feed and an annotation permalink.</p>
+                </li>
+                <li>
+                  <span>2</span>
+                  <p>Build `dist/extension`, load it unpacked, and save the production API URL.</p>
+                </li>
+                <li>
+                  <span>3</span>
+                  <p>Publish from a source tab, then verify the permalink, comment, and claim paths.</p>
+                </li>
+              </ol>
+            </section>
             <div className="feed-list marketing-preview">
               {feedItems.slice(0, 2).map((annotation) => (
                 <AnnotationCard
@@ -566,7 +600,7 @@ export function App() {
           {[
             "Original source is always linked",
             "Clips stop at 90 seconds",
-            "Sign in with X or Google",
+            "Unpacked extension supported for review",
             "Claims ask for human review",
             "Retries do not duplicate posts"
           ].map((item) => (
@@ -577,7 +611,7 @@ export function App() {
           ))}
           <div className="notify">
             <Bell size={18} aria-hidden="true" />
-            <p>Open the source from any card before you quote, comment, or file a claim.</p>
+            <p>Google/X sign-in needs provider credentials; review can continue with the feed and unpacked extension.</p>
           </div>
         </aside>
       </main>

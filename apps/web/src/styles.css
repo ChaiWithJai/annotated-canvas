@@ -247,6 +247,95 @@
   font-size: 13px;
 }
 
+.auth-recovery {
+  border: 1px solid color-mix(in srgb, var(--ac-danger) 38%, var(--ac-border));
+  border-radius: var(--ac-radius);
+  background: color-mix(in srgb, var(--ac-danger) 7%, var(--ac-surface));
+  padding: 14px;
+}
+
+.auth-recovery strong {
+  display: block;
+  color: var(--ac-danger);
+  font-size: 14px;
+}
+
+.auth-recovery p {
+  margin: 6px 0 0;
+  color: var(--ac-muted);
+  font-size: 13px;
+}
+
+.auth-recovery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.auth-recovery__actions a,
+.auth-recovery__actions button {
+  min-height: 34px;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  color: var(--ac-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.review-path {
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.review-path h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.review-path__steps {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.review-path__steps li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.review-path__steps span {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ac-primary);
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.review-path__steps p {
+  margin: 1px 0 0;
+  color: var(--ac-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .marketing-preview {
   margin-top: 8px;
 }
