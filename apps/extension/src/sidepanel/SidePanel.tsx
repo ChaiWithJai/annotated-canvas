@@ -1,13 +1,18 @@
 import { SourceRefSchema, toSourceDomain } from "@annotated/contracts";
 import { Button, SourcePill } from "@annotated/ui";
-import { Clock, FileText, Layers, Mic, Scissors, Send, Settings, Square, UserCircle } from "lucide-react";
+import { Clock, FileText, Layers, Mic, RotateCcw, Save, Scissors, Send, Settings, Square, UserCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  DEFAULT_API_BASE,
+  PRODUCTION_API_BASE,
   readApiBase,
   publishAnnotation,
   readActiveTabContext,
+  readCaptureDraft,
   readPendingCapture,
   saveApiBase,
+  saveCaptureDraft,
+  type CaptureDraft,
   type PageCaptureContext
 } from "./api";
 
@@ -35,6 +40,8 @@ export function SidePanel() {
   const [pageContext, setPageContext] = useState<PageCaptureContext | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
+  const [savedDraft, setSavedDraft] = useState<CaptureDraft | null>(null);
+  const [draftStatus, setDraftStatus] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
 
@@ -69,6 +76,7 @@ export function SidePanel() {
 
   useEffect(() => {
     void readApiBase().then(setApiBaseUrl);
+    void readCaptureDraft().then(setSavedDraft);
   }, []);
 
   function parseTimeInput(value: string): number {
@@ -153,6 +161,31 @@ export function SidePanel() {
     const nextApiBase = await saveApiBase(apiBaseUrl);
     setApiBaseUrl(nextApiBase);
     setSettingsStatus("Saved.");
+  }
+
+  async function saveDraft() {
+    const startSeconds = parseTimeInput(startTime);
+    const endSeconds = parseTimeInput(endTime);
+    const nextDraft = await saveCaptureDraft({
+      context: pageContext ?? {},
+      commentary,
+      captureKind,
+      range: { start_seconds: startSeconds, end_seconds: endSeconds }
+    });
+    setSavedDraft(nextDraft);
+    setDraftStatus("Draft saved locally.");
+  }
+
+  function restoreDraft(draft: CaptureDraft) {
+    setPageContext(draft.context);
+    setCaptureKind(draft.captureKind);
+    setCommentary(draft.commentary);
+    if (draft.range) {
+      setStartTime(formatTimeInput(draft.range.start_seconds));
+      setEndTime(formatTimeInput(draft.range.end_seconds));
+    }
+    setMode("context");
+    setDraftStatus("Draft restored.");
   }
 
   return (
@@ -244,6 +277,13 @@ export function SidePanel() {
             </button>
             {audioBlob ? <span>Voice note ready</span> : null}
           </div>
+          <div className="draft-actions">
+            <Button tone="secondary" type="button" onClick={saveDraft}>
+              <Save size={15} aria-hidden="true" />
+              Save draft
+            </Button>
+            {draftStatus ? <span>{draftStatus}</span> : null}
+          </div>
         </section>
       ) : mode === "settings" ? (
         <section className="settings-pane">
@@ -259,23 +299,49 @@ export function SidePanel() {
               inputMode="url"
             />
           </label>
+          <div className="preset-row" aria-label="API presets">
+            <button type="button" onClick={() => setApiBaseUrl(DEFAULT_API_BASE)}>
+              Local
+            </button>
+            <button type="button" onClick={() => setApiBaseUrl(PRODUCTION_API_BASE)}>
+              Production
+            </button>
+          </div>
           <p>Use localhost for local testing or the deployed Worker URL for review.</p>
           <Button tone="secondary" onClick={saveSettings}>
             Save settings
           </Button>
           {settingsStatus ? <span>{settingsStatus}</span> : null}
         </section>
+      ) : mode === "drafts" ? (
+        <section className="draft-pane">
+          {savedDraft ? (
+            <article className="draft-card">
+              <div>
+                <strong>{savedDraft.context.title || "Untitled source"}</strong>
+                <span>{savedDraft.captureKind === "text" ? "Selected text" : "Time range"}</span>
+              </div>
+              <p>{savedDraft.commentary || "No commentary yet."}</p>
+              <Button tone="secondary" type="button" onClick={() => restoreDraft(savedDraft)}>
+                <RotateCcw size={15} aria-hidden="true" />
+                Restore draft
+              </Button>
+            </article>
+          ) : (
+            <p>No local draft saved yet.</p>
+          )}
+        </section>
       ) : (
         <section className="empty-pane">
-          <p>No saved items yet.</p>
+          <p>Published items appear in the API feed after publish.</p>
         </section>
       )}
 
       <footer className="sidepanel-footer">
         {error ? <p className="sidepanel-error">{error}</p> : null}
         <div className="sync-row">
-          <span>Signed out</span>
           <UserCircle size={16} aria-hidden="true" />
+          <span>Signed out: production publishes use the demo API author until extension OAuth handoff lands.</span>
         </div>
         <Button tone="primary" onClick={publish} disabled={status === "publishing"}>
           <Send size={16} aria-hidden="true" />

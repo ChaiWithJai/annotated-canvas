@@ -1,7 +1,10 @@
 import { AnnotationCreateSchema, SourceRefSchema, toSourceDomain } from "@annotated/contracts";
 
 export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
+export const PRODUCTION_API_BASE = "https://annotated-canvas-api.jaybhagat841.workers.dev";
 const API_BASE_STORAGE_KEY = "apiBaseUrl";
+const PENDING_CAPTURE_STORAGE_KEY = "pendingCapture";
+const CAPTURE_DRAFT_STORAGE_KEY = "captureDraft";
 
 export interface PageCaptureContext {
   source_url?: string;
@@ -23,6 +26,17 @@ export interface PublishOptions {
     end_seconds: number;
   };
   audioBlob?: Blob | null;
+}
+
+export interface CaptureDraft {
+  context: PageCaptureContext;
+  commentary: string;
+  captureKind: "text" | "video";
+  range?: {
+    start_seconds: number;
+    end_seconds: number;
+  };
+  saved_at: string;
 }
 
 function normalizeApiBase(value: string): string {
@@ -64,8 +78,36 @@ export async function readActiveTabContext(): Promise<PageCaptureContext | null>
 
 export async function readPendingCapture(): Promise<PageCaptureContext | null> {
   if (!globalThis.chrome?.storage?.local) return null;
-  const result = await chrome.storage.local.get("pendingCapture");
-  return (result.pendingCapture as PageCaptureContext | undefined) ?? null;
+  const result = await chrome.storage.local.get(PENDING_CAPTURE_STORAGE_KEY);
+  const pending = (result[PENDING_CAPTURE_STORAGE_KEY] as PageCaptureContext | undefined) ?? null;
+  if (pending && chrome.storage.local.remove) {
+    await chrome.storage.local.remove(PENDING_CAPTURE_STORAGE_KEY);
+  }
+  return pending;
+}
+
+export async function readCaptureDraft(): Promise<CaptureDraft | null> {
+  if (!globalThis.chrome?.storage?.local) return null;
+  const result = await chrome.storage.local.get(CAPTURE_DRAFT_STORAGE_KEY);
+  return (result[CAPTURE_DRAFT_STORAGE_KEY] as CaptureDraft | undefined) ?? null;
+}
+
+export async function saveCaptureDraft(draft: Omit<CaptureDraft, "saved_at">): Promise<CaptureDraft> {
+  const savedDraft = {
+    ...draft,
+    commentary: draft.commentary.trim(),
+    context: {
+      ...draft.context,
+      selection_text: draft.context.selection_text?.trim()
+    },
+    saved_at: new Date().toISOString()
+  };
+  if (globalThis.chrome?.storage?.local) {
+    await chrome.storage.local.set({
+      [CAPTURE_DRAFT_STORAGE_KEY]: savedDraft
+    });
+  }
+  return savedDraft;
 }
 
 async function uploadAudioCommentary(audioBlob: Blob): Promise<string> {
@@ -95,6 +137,9 @@ export async function publishAnnotation(options: PublishOptions) {
   const startSeconds = Math.max(0, Math.floor(range?.start_seconds ?? currentTime));
   const endSeconds = Math.max(startSeconds + 1, Math.floor(range?.end_seconds ?? currentTime + 47));
   const durationSeconds = endSeconds - startSeconds;
+  if (captureKind === "video" && durationSeconds > 90) {
+    throw new Error("range_too_long");
+  }
   const audioAssetId = audioBlob ? await uploadAudioCommentary(audioBlob) : null;
   const payload = AnnotationCreateSchema.parse({
     clip:
@@ -103,7 +148,7 @@ export async function publishAnnotation(options: PublishOptions) {
             kind: "text",
             source,
             text: {
-              quote: context.selection_text || "Selected source text for annotation."
+              quote: context.selection_text?.trim() || "Selected source text for annotation."
             }
           }
         : {
