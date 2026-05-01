@@ -234,20 +234,27 @@ a {
   font-size: 13px;
 }
 
-.annotation-card__footer span,
+.annotation-card__footer button,
 .annotation-card__claim {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.annotation-card__claim {
-  margin-left: auto;
+.annotation-card__footer button {
   border: 0;
   background: transparent;
   color: var(--ac-muted);
   cursor: pointer;
   padding: 5px 0;
+}
+
+.annotation-card__footer button:hover {
+  color: var(--ac-text);
+}
+
+.annotation-card__claim {
+  margin-left: auto;
 }
 
 .annotation-card__claim:hover {

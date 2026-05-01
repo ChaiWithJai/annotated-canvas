@@ -2,6 +2,8 @@ import {
   AnnotationCreateSchema,
   AuthProviderSchema,
   ClaimCreateSchema,
+  ClaimEventCreateSchema,
+  CommentCreateSchema,
   EngagementCreateSchema,
   SourceRefSchema,
   createRequestId,
@@ -270,6 +272,38 @@ export async function handleRequest(request: Request, env: Env, services = makeS
     return json(env, { annotation });
   }
 
+  const commentsMatch = url.pathname.match(/^\/api\/annotations\/([^/]+)\/comments$/);
+  if (commentsMatch && request.method === "GET") {
+    const annotation = await services.repository.findAnnotation(commentsMatch[1]);
+    if (!annotation || annotation.visibility === "deleted") {
+      return error(env, 404, "annotation_not_found", "Cannot list comments for an unknown annotation.");
+    }
+
+    return json(env, {
+      items: await services.repository.listComments(commentsMatch[1]),
+      next_cursor: null
+    });
+  }
+
+  if (commentsMatch && request.method === "POST") {
+    const idempotencyKey = requireIdempotencyKey(request);
+    if (idempotencyKey instanceof Response) {
+      return error(env, 428, "idempotency_key_required", "Comment mutations require Idempotency-Key.");
+    }
+
+    const parsed = CommentCreateSchema.safeParse(await readJson(request));
+    if (!parsed.success) {
+      return error(env, 400, "invalid_comment", "Comment payload failed validation.", parsed.error.flatten());
+    }
+
+    try {
+      const comment = await services.repository.createComment(commentsMatch[1], parsed.data, idempotencyKey);
+      return json(env, { comment }, { status: 201 });
+    } catch {
+      return error(env, 404, "annotation_not_found", "Cannot comment on an unknown or removed annotation.");
+    }
+  }
+
   const engagementMatch = url.pathname.match(/^\/api\/annotations\/([^/]+)\/engagement$/);
   if (engagementMatch && request.method === "POST") {
     const idempotencyKey = requireIdempotencyKey(request);
@@ -323,14 +357,54 @@ export async function handleRequest(request: Request, env: Env, services = makeS
     return json(env, { claim }, { status: 202 });
   }
 
+  const claimMatch = url.pathname.match(/^\/api\/claims\/([^/]+)$/);
+  if (claimMatch && request.method === "GET") {
+    const claim = await services.repository.findClaim(claimMatch[1]);
+    if (!claim) {
+      return error(env, 404, "claim_not_found", "No claim exists with that id.");
+    }
+    return json(env, {
+      claim,
+      events: await services.repository.listClaimEvents(claim.id)
+    });
+  }
+
+  const claimEventMatch = url.pathname.match(/^\/api\/claims\/([^/]+)\/events$/);
+  if (claimEventMatch && request.method === "POST") {
+    const parsed = ClaimEventCreateSchema.safeParse(await readJson(request));
+    if (!parsed.success) {
+      return error(env, 400, "invalid_claim_event", "Claim event payload failed validation.", parsed.error.flatten());
+    }
+
+    try {
+      const event = await services.repository.createClaimEvent(claimEventMatch[1], parsed.data);
+      const claim = await services.repository.findClaim(claimEventMatch[1]);
+      return json(env, { claim, event }, { status: 201 });
+    } catch {
+      return error(env, 404, "claim_not_found", "Cannot add an event to an unknown claim.");
+    }
+  }
+
   if (url.pathname === "/api/uploads/audio-commentary" && request.method === "POST") {
+    const id = `upl_${crypto.randomUUID()}`;
+    const key = `audio-commentary/${id}.webm`;
+    if (env.MEDIA_BUCKET && request.body) {
+      await env.MEDIA_BUCKET.put(key, request.body, {
+        httpMetadata: {
+          contentType: request.headers.get("Content-Type") ?? "audio/webm"
+        }
+      });
+    }
+
     return json(env, {
       upload: {
-        id: `upl_${crypto.randomUUID()}`,
+        id,
+        asset_id: id,
         kind: "audio-commentary",
         storage: "r2",
+        r2_key: key,
         max_bytes: 25 * 1024 * 1024,
-        status: "intent-created"
+        status: env.MEDIA_BUCKET && request.body ? "stored" : "intent-created"
       }
     });
   }

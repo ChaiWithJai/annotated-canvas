@@ -2,7 +2,11 @@ import type {
   AnnotationCreate,
   AnnotationResource,
   ClaimCreate,
+  ClaimEventCreate,
+  ClaimEventResource,
   ClaimResource,
+  CommentCreate,
+  CommentResource,
   UserResource
 } from "@annotated/contracts";
 
@@ -34,6 +38,11 @@ export interface Repository {
   listUserAnnotations(handle: string): Promise<AnnotationResource[]>;
   publishAnnotation(input: AnnotationCreate, idempotencyKey: string): Promise<AnnotationResource>;
   createClaim(input: ClaimCreate, idempotencyKey?: string): Promise<ClaimResource>;
+  findClaim(id: string): Promise<ClaimResource | null>;
+  listClaimEvents(claimId: string): Promise<ClaimEventResource[]>;
+  createClaimEvent(claimId: string, input: ClaimEventCreate): Promise<ClaimEventResource>;
+  listComments(annotationId: string): Promise<CommentResource[]>;
+  createComment(annotationId: string, input: CommentCreate, idempotencyKey: string): Promise<CommentResource>;
   recordEngagement(annotationId: string, type: "like" | "repost" | "discuss", idempotencyKey: string): Promise<AnnotationResource>;
   setFollow(targetUserId: string, following: boolean): Promise<UserResource>;
 }

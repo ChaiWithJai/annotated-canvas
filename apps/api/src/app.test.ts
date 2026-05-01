@@ -215,4 +215,122 @@ describe("API router regression coverage", () => {
     expect(annotation.annotation.id).toBe("ann_video_minimalism");
     expect(jobs.jobs[0]).toMatchObject({ type: "claim_notice", claim_id: claim.claim.id });
   });
+
+  it("creates and lists p50 comments on a public annotation", async () => {
+    const created = await handleRequest(
+      request("/api/annotations/ann_video_minimalism/comments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "comment-key-1"
+        },
+        body: JSON.stringify({
+          body: "This is a useful discussion note tied to the source moment."
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+    expect(created.status).toBe(201);
+
+    const payload = await body(created);
+    expect(payload.comment.annotation_id).toBe("ann_video_minimalism");
+
+    const listed = await body(
+      await handleRequest(request("/api/annotations/ann_video_minimalism/comments"), env, { repository, jobs })
+    );
+    expect(listed.items.some((item: any) => item.id === payload.comment.id)).toBe(true);
+
+    const annotation = await body(
+      await handleRequest(request("/api/annotations/ann_video_minimalism"), env, { repository, jobs })
+    );
+    expect(annotation.annotation.engagement.discussions).toBeGreaterThan(6);
+  });
+
+  it("keeps p95 comment retries idempotent", async () => {
+    const init: RequestInit = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": "comment-key-retry"
+      },
+      body: JSON.stringify({
+        body: "Retry-safe comment creation."
+      })
+    };
+
+    const first = await body(
+      await handleRequest(request("/api/annotations/ann_text_density/comments", init), env, { repository, jobs })
+    );
+    const second = await body(
+      await handleRequest(request("/api/annotations/ann_text_density/comments", init), env, { repository, jobs })
+    );
+
+    expect(second.comment.id).toBe(first.comment.id);
+  });
+
+  it("rejects p95 comments on unknown annotations", async () => {
+    const response = await handleRequest(
+      request("/api/annotations/missing/comments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "comment-key-missing"
+        },
+        body: JSON.stringify({
+          body: "This cannot attach to anything."
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it("serves claim status and records p50 claim events", async () => {
+    const created = await body(
+      await handleRequest(
+        request("/api/claims", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": "claim-key-status"
+          },
+          body: JSON.stringify({
+            annotation_id: "ann_video_minimalism",
+            claimant_name: "Rights Holder",
+            claimant_email: "rights@example.com",
+            relationship: "copyright-owner",
+            reason:
+              "I own this source and want the annotation reviewed for attribution and fair-use boundaries.",
+            requested_action: "review"
+          })
+        }),
+        env,
+        { repository, jobs }
+      )
+    );
+
+    const eventResponse = await handleRequest(
+      request(`/api/claims/${created.claim.id}/events`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          event_type: "status-change",
+          body: "Moderator requested more information.",
+          status: "needs_info"
+        })
+      }),
+      env,
+      { repository, jobs }
+    );
+    expect(eventResponse.status).toBe(201);
+
+    const status = await body(await handleRequest(request(`/api/claims/${created.claim.id}`), env, { repository, jobs }));
+    expect(status.claim.status).toBe("needs_info");
+    expect(status.events).toHaveLength(1);
+  });
 });

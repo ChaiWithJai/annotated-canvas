@@ -4,8 +4,12 @@ import {
   type AnnotationCreate,
   type AnnotationResource,
   type ClaimCreate,
+  type ClaimEventCreate,
+  type ClaimEventResource,
   type ClaimResource,
   type ClipRef,
+  type CommentCreate,
+  type CommentResource,
   type SourceRef,
   type UserResource
 } from "@annotated/contracts";
@@ -22,12 +26,17 @@ function cloneAnnotation(annotation: AnnotationResource): AnnotationResource {
 export class InMemoryRepository implements Repository {
   private annotations = new Map<string, AnnotationResource>();
   private claims = new Map<string, ClaimResource>();
+  private claimEvents = new Map<string, ClaimEventResource>();
+  private comments = new Map<string, CommentResource>();
   private idempotency = new Map<string, string>();
   private followedUserIds = new Set<string>(["usr_ren", "usr_ika"]);
 
   constructor(seed: AnnotationResource[] = fixtures.annotations) {
     for (const annotation of seed) {
       this.annotations.set(annotation.id, cloneAnnotation(annotation));
+    }
+    for (const comment of fixtures.comments) {
+      this.comments.set(comment.id, structuredClone(comment));
     }
   }
 
@@ -119,6 +128,72 @@ export class InMemoryRepository implements Repository {
     return structuredClone(claim);
   }
 
+  async findClaim(id: string): Promise<ClaimResource | null> {
+    const claim = this.claims.get(id);
+    return claim ? structuredClone(claim) : null;
+  }
+
+  async listClaimEvents(claimId: string): Promise<ClaimEventResource[]> {
+    return Array.from(this.claimEvents.values())
+      .filter((event) => event.claim_id === claimId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((event) => structuredClone(event));
+  }
+
+  async createClaimEvent(claimId: string, input: ClaimEventCreate): Promise<ClaimEventResource> {
+    const claim = this.claims.get(claimId);
+    if (!claim) throw new Error("claim_not_found");
+
+    if (input.status) {
+      claim.status = input.status;
+    }
+
+    const event: ClaimEventResource = {
+      id: `cle_${crypto.randomUUID()}`,
+      claim_id: claimId,
+      actor_id: fixtures.currentUser.id,
+      event_type: input.event_type,
+      body: input.body,
+      status: input.status,
+      created_at: now()
+    };
+    this.claimEvents.set(event.id, event);
+    return structuredClone(event);
+  }
+
+  async listComments(annotationId: string): Promise<CommentResource[]> {
+    return Array.from(this.comments.values())
+      .filter((comment) => comment.annotation_id === annotationId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((comment) => structuredClone(comment));
+  }
+
+  async createComment(annotationId: string, input: CommentCreate, idempotencyKey: string): Promise<CommentResource> {
+    const existingId = this.idempotency.get(`comment:${idempotencyKey}`);
+    if (existingId) {
+      const existing = this.comments.get(existingId);
+      if (existing) return structuredClone(existing);
+    }
+
+    const annotation = this.annotations.get(annotationId);
+    if (!annotation || annotation.visibility === "deleted") {
+      throw new Error("annotation_not_found");
+    }
+
+    const comment: CommentResource = {
+      id: `cmt_${crypto.randomUUID()}`,
+      annotation_id: annotationId,
+      author_id: fixtures.currentUser.id,
+      author: fixtures.currentUser,
+      body: input.body,
+      created_at: now()
+    };
+    this.comments.set(comment.id, comment);
+    this.idempotency.set(`comment:${idempotencyKey}`, comment.id);
+    annotation.engagement.discussions += 1;
+    return structuredClone(comment);
+  }
+
   async recordEngagement(annotationId: string, type: "like" | "repost" | "discuss", idempotencyKey: string): Promise<AnnotationResource> {
     const existingId = this.idempotency.get(`engagement:${idempotencyKey}`);
     const annotation = this.annotations.get(existingId ?? annotationId);
@@ -197,6 +272,28 @@ type UserRow = {
   following: number;
   annotations: number;
   viewer_is_following: number;
+};
+
+type CommentRow = {
+  comment_id: string;
+  annotation_id: string;
+  author_id: string;
+  handle: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  body: string;
+  created_at: string;
+};
+
+type ClaimEventRow = {
+  id: string;
+  claim_id: string;
+  actor_id: string | null;
+  event_type: ClaimEventResource["event_type"];
+  body: string;
+  status: ClaimEventResource["status"] | null;
+  created_at: string;
 };
 
 function sourceFromRow(row: D1Row): SourceRef {
@@ -299,6 +396,35 @@ function userFromRow(row: UserRow): UserResource {
       following: row.following,
       annotations: row.annotations
     }
+  };
+}
+
+function commentFromRow(row: CommentRow): CommentResource {
+  return {
+    id: row.comment_id,
+    annotation_id: row.annotation_id,
+    author_id: row.author_id,
+    author: {
+      id: row.author_id,
+      handle: row.handle,
+      display_name: row.display_name,
+      avatar_url: row.avatar_url ?? undefined,
+      bio: row.bio ?? undefined
+    },
+    body: row.body,
+    created_at: row.created_at
+  };
+}
+
+function claimEventFromRow(row: ClaimEventRow): ClaimEventResource {
+  return {
+    id: row.id,
+    claim_id: row.claim_id,
+    actor_id: row.actor_id ?? undefined,
+    event_type: row.event_type,
+    body: row.body,
+    status: row.status ?? undefined,
+    created_at: row.created_at
   };
 }
 
@@ -477,6 +603,101 @@ export class D1Repository implements Repository {
     return claim;
   }
 
+  async findClaim(id: string): Promise<ClaimResource | null> {
+    return this.db.prepare("SELECT id, annotation_id, status, created_at FROM claims WHERE id = ?").bind(id).first<ClaimResource>();
+  }
+
+  async listClaimEvents(claimId: string): Promise<ClaimEventResource[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT id, claim_id, actor_id, event_type, body, status, created_at
+         FROM claim_events
+         WHERE claim_id = ?
+         ORDER BY created_at ASC`
+      )
+      .bind(claimId)
+      .all<ClaimEventRow>();
+    return result.results.map(claimEventFromRow);
+  }
+
+  async createClaimEvent(claimId: string, input: ClaimEventCreate): Promise<ClaimEventResource> {
+    const claim = await this.findClaim(claimId);
+    if (!claim) throw new Error("claim_not_found");
+
+    if (input.status) {
+      await this.db.prepare("UPDATE claims SET status = ? WHERE id = ?").bind(input.status, claimId).run();
+    }
+
+    const id = `cle_${crypto.randomUUID()}`;
+    await this.db
+      .prepare(
+        `INSERT INTO claim_events (id, claim_id, actor_id, event_type, body, status)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .bind(id, claimId, this.viewerId, input.event_type, input.body, input.status ?? null)
+      .run();
+
+    const row = await this.db
+      .prepare("SELECT id, claim_id, actor_id, event_type, body, status, created_at FROM claim_events WHERE id = ?")
+      .bind(id)
+      .first<ClaimEventRow>();
+    if (!row) throw new Error("claim_event_write_failed");
+    return claimEventFromRow(row);
+  }
+
+  private async findComment(id: string): Promise<CommentResource | null> {
+    const row = await this.db
+      .prepare(`${commentSelectSql()} WHERE c.id = ?`)
+      .bind(id)
+      .first<CommentRow>();
+    return row ? commentFromRow(row) : null;
+  }
+
+  async listComments(annotationId: string): Promise<CommentResource[]> {
+    const result = await this.db
+      .prepare(`${commentSelectSql()} WHERE c.annotation_id = ? ORDER BY c.created_at ASC`)
+      .bind(annotationId)
+      .all<CommentRow>();
+    return result.results.map(commentFromRow);
+  }
+
+  async createComment(annotationId: string, input: CommentCreate, idempotencyKey: string): Promise<CommentResource> {
+    const existing = await this.db
+      .prepare("SELECT resource_id FROM mutation_idempotency_keys WHERE scope = 'comment' AND idempotency_key = ?")
+      .bind(idempotencyKey)
+      .first<{ resource_id: string }>();
+    if (existing) {
+      const comment = await this.findComment(existing.resource_id);
+      if (comment) return comment;
+    }
+
+    const annotation = await this.findAnnotation(annotationId);
+    if (!annotation || annotation.visibility === "deleted") {
+      throw new Error("annotation_not_found");
+    }
+
+    const id = `cmt_${crypto.randomUUID()}`;
+    await this.db
+      .prepare("INSERT INTO comments (id, annotation_id, author_id, body) VALUES (?, ?, ?, ?)")
+      .bind(id, annotationId, this.viewerId, input.body)
+      .run();
+    await this.db
+      .prepare("INSERT INTO mutation_idempotency_keys (scope, idempotency_key, resource_id) VALUES ('comment', ?, ?)")
+      .bind(idempotencyKey, id)
+      .run();
+    await this.db
+      .prepare(
+        `INSERT OR IGNORE INTO engagement_events (id, annotation_id, user_id, type, body, idempotency_key)
+         VALUES (?, ?, ?, 'discuss', ?, ?)`
+      )
+      .bind(`eng_${crypto.randomUUID()}`, annotationId, this.viewerId, input.body, `comment:${idempotencyKey}`)
+      .run();
+
+    const comment = await this.findComment(id);
+    if (!comment) throw new Error("comment_write_failed");
+    return comment;
+  }
+
   async recordEngagement(annotationId: string, type: "like" | "repost" | "discuss", idempotencyKey: string): Promise<AnnotationResource> {
     const existing = await this.db
       .prepare("SELECT resource_id FROM mutation_idempotency_keys WHERE scope = 'engagement' AND idempotency_key = ?")
@@ -564,4 +785,19 @@ function annotationSelectSql(): string {
   LEFT JOIN sources s ON s.id = c.source_id
   LEFT JOIN engagement_events e ON e.annotation_id = a.id
   `;
+}
+
+function commentSelectSql(): string {
+  return `SELECT
+    c.id AS comment_id,
+    c.annotation_id,
+    c.author_id,
+    u.handle,
+    u.display_name,
+    u.avatar_url,
+    u.bio,
+    c.body,
+    c.created_at
+  FROM comments c
+  JOIN users u ON u.id = c.author_id`;
 }

@@ -1,0 +1,188 @@
+#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const configPath = resolve(root, "apps/api/wrangler.production.jsonc");
+const args = new Set(process.argv.slice(2));
+const shouldApply = args.has("--apply");
+const shouldDeploy = args.has("--deploy");
+const shouldConfigureGithub = args.has("--github");
+const shouldCreatePages = args.has("--pages");
+
+const names = {
+  d1: "annotated_canvas",
+  kv: "SESSION_KV",
+  r2: "annotated-canvas-media",
+  queue: "annotated-canvas-jobs",
+  dlq: "annotated-canvas-dlq",
+  pages: "annotated-canvas"
+};
+
+function log(message) {
+  process.stdout.write(`${message}\n`);
+}
+
+function run(command, commandArgs, options = {}) {
+  const { allowFailure = false, mutate = false, input } = options;
+  log(`$ ${command} ${commandArgs.join(" ")}`);
+  if (mutate && !shouldApply) return "";
+
+  const result = spawnSync(command, commandArgs, {
+    cwd: root,
+    env: process.env,
+    input,
+    encoding: "utf8",
+    stdio: input ? ["pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"]
+  });
+
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (output.trim()) log(output.trim());
+  if (result.status !== 0 && !allowFailure) {
+    throw new Error(`Command failed: ${command} ${commandArgs.join(" ")}`);
+  }
+  return output;
+}
+
+function wrangler(commandArgs, options = {}) {
+  return run("npm", ["exec", "--", "wrangler", ...commandArgs], options);
+}
+
+function gh(commandArgs, options = {}) {
+  return run("gh", commandArgs, options);
+}
+
+function parseJsonMaybe(output) {
+  try {
+    return JSON.parse(output);
+  } catch {
+    return null;
+  }
+}
+
+function parseUuid(output) {
+  return output.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0] ?? null;
+}
+
+function readProductionConfig() {
+  return JSON.parse(readFileSync(configPath, "utf8"));
+}
+
+function writeProductionConfig(config) {
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  log(`Updated ${configPath}`);
+}
+
+function currentConfigIds() {
+  const config = readProductionConfig();
+  return {
+    d1Id: config.d1_databases?.[0]?.database_id,
+    kvId: config.kv_namespaces?.[0]?.id
+  };
+}
+
+function assertAuthenticated() {
+  const output = wrangler(["whoami"], { allowFailure: true });
+  if (output.includes("not authenticated") || output.includes("Please run `wrangler login`")) {
+    throw new Error("Wrangler is not authenticated. Run: npm exec -- wrangler login");
+  }
+}
+
+function ensureD1() {
+  const listOutput = wrangler(["d1", "list", "--json"]);
+  const databases = parseJsonMaybe(listOutput) ?? [];
+  const existing = databases.find((database) => database.name === names.d1);
+  if (existing?.uuid || existing?.database_id) return existing.uuid ?? existing.database_id;
+
+  const createOutput = wrangler(["d1", "create", names.d1, "--location", "enam"], { mutate: true });
+  return parseUuid(createOutput);
+}
+
+function ensureKv() {
+  const listOutput = wrangler(["kv", "namespace", "list"], { allowFailure: true });
+  const namespaces = parseJsonMaybe(listOutput) ?? [];
+  const existing = Array.isArray(namespaces)
+    ? namespaces.find((namespace) => namespace.title === names.kv || namespace.title?.endsWith(`-${names.kv}`))
+    : null;
+  if (existing?.id) return existing.id;
+
+  const createOutput = wrangler(["kv", "namespace", "create", names.kv], { mutate: true });
+  return parseUuid(createOutput) ?? createOutput.match(/id\\s*=\\s*\"([^\"]+)\"/)?.[1] ?? null;
+}
+
+function ensureBestEffortResources() {
+  wrangler(["r2", "bucket", "create", names.r2, "--location", "enam"], { allowFailure: true, mutate: true });
+  wrangler(["queues", "create", names.queue], { allowFailure: true, mutate: true });
+  wrangler(["queues", "create", names.dlq], { allowFailure: true, mutate: true });
+  if (shouldCreatePages) {
+    wrangler(["pages", "project", "create", names.pages, "--production-branch", "main"], {
+      allowFailure: true,
+      mutate: true
+    });
+  }
+}
+
+function patchConfig(d1Id, kvId) {
+  if (!d1Id || !kvId) {
+    throw new Error("Could not resolve production D1/KV IDs from Wrangler output.");
+  }
+
+  const config = readProductionConfig();
+  config.d1_databases[0].database_id = d1Id;
+  config.kv_namespaces[0].id = kvId;
+  writeProductionConfig(config);
+}
+
+function configureGithub() {
+  if (!shouldConfigureGithub) return;
+  if (!process.env.CLOUDFLARE_ACCOUNT_ID || !process.env.CLOUDFLARE_API_TOKEN) {
+    throw new Error("Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in the shell before --github.");
+  }
+
+  gh(["secret", "set", "CLOUDFLARE_ACCOUNT_ID", "--body", process.env.CLOUDFLARE_ACCOUNT_ID], { mutate: true });
+  gh(["secret", "set", "CLOUDFLARE_API_TOKEN", "--body", process.env.CLOUDFLARE_API_TOKEN], { mutate: true });
+  gh(["variable", "set", "CLOUDFLARE_DEPLOY_ENABLED", "--body", "true"], { mutate: true });
+}
+
+function deploy() {
+  if (!shouldDeploy) return;
+  run("npm", ["run", "cf:migrate:production"], { mutate: true });
+  wrangler(["deploy", "--config", "apps/api/wrangler.production.jsonc"], { mutate: true });
+  run("npm", ["run", "build:web"], { mutate: true });
+  wrangler(["pages", "deploy", "dist/web", "--project-name", names.pages, "--branch", "main"], { mutate: true });
+}
+
+function main() {
+  log("Annotated Canvas Cloudflare production bootstrap");
+  log(shouldApply ? "Mode: apply changes" : "Mode: dry run. Add --apply to create resources and patch config.");
+  log("Planned resources:");
+  log(`- D1: ${names.d1}`);
+  log(`- KV: ${names.kv}`);
+  log(`- R2: ${names.r2}`);
+  log(`- Queues: ${names.queue}, ${names.dlq}`);
+  log(`- Pages project: ${names.pages}`);
+  log(`Current config IDs: ${JSON.stringify(currentConfigIds())}`);
+
+  assertAuthenticated();
+  if (!shouldApply) {
+    log("Dry run complete after auth check. Re-run with --apply to create resources and patch production config.");
+    return;
+  }
+  const d1Id = ensureD1();
+  const kvId = ensureKv();
+  ensureBestEffortResources();
+  patchConfig(d1Id, kvId);
+  configureGithub();
+  deploy();
+
+  log("Cloudflare bootstrap complete.");
+}
+
+try {
+  main();
+} catch (error) {
+  log(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}

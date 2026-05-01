@@ -27,7 +27,9 @@
     "cf:migrate:local": "wrangler d1 migrations apply annotated_canvas --local --config apps/api/wrangler.jsonc",
     "cf:migrate:remote": "wrangler d1 migrations apply annotated_canvas --remote --config apps/api/wrangler.jsonc",
     "cf:migrate:production": "wrangler d1 migrations apply annotated_canvas --remote --config apps/api/wrangler.production.jsonc",
-    "cf:queues:create": "wrangler queues create annotated-canvas-jobs && wrangler queues create annotated-canvas-dlq"
+    "cf:queues:create": "wrangler queues create annotated-canvas-jobs && wrangler queues create annotated-canvas-dlq",
+    "cf:setup:production": "node scripts/cloudflare/setup-production.mjs",
+    "cf:deploy:production": "node scripts/cloudflare/setup-production.mjs --apply --deploy --pages"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.1",

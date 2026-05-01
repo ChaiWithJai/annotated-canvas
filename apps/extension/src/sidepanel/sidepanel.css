@@ -162,6 +162,36 @@ body {
   border-left-color: var(--ac-primary);
 }
 
+.audio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.audio-row button {
+  min-height: 36px;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+  color: var(--ac-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.audio-row button.is-active {
+  border-color: var(--ac-primary);
+  color: var(--ac-primary);
+}
+
+.audio-row span {
+  color: var(--ac-muted);
+  font-size: 12px;
+}
+
 .empty-pane {
   padding: 28px 20px;
   color: var(--ac-muted);

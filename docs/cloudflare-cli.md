@@ -18,6 +18,8 @@ npm run cf:dev
 npm run cf:migrate:local
 npm run cf:migrate:remote
 npm run cf:queues:create
+npm run cf:setup:production
+npm run cf:deploy:production
 ```
 
 `apps/api/wrangler.jsonc` is the source of truth for the public API Worker. It includes D1, KV, R2, Queue, Durable Object, observability, and future service-binding placeholders.
@@ -29,6 +31,31 @@ npm run cf:queues:create
 - `MEDIA_BUCKET`: user-owned audio, generated OG images, and optional snapshots only.
 - `JOBS`: feed fanout, claim notices, metadata refresh, and post-publish background jobs.
 - `ENGAGEMENT_COUNTERS`: per-annotation coordination where a D1 event log alone is not enough.
+
+## Production Bootstrap
+
+`npm run cf:setup:production` runs `scripts/cloudflare/setup-production.mjs`. By default it performs a dry run and verifies Wrangler authentication. Add `-- --apply` to create or reuse Cloudflare resources and patch `apps/api/wrangler.production.jsonc` with generated D1/KV IDs.
+
+```bash
+npm exec -- wrangler login
+npm run cf:setup:production -- --apply --pages
+```
+
+To deploy after resources are created:
+
+```bash
+npm run cf:deploy:production
+```
+
+To wire GitHub Actions from the CLI, export a scoped Cloudflare account ID/token first, then let the script set repository secrets and enable the deploy gate:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_API_TOKEN=...
+npm run cf:setup:production -- --apply --github
+```
+
+The script intentionally refuses to proceed until `wrangler whoami` succeeds. This prevents partially configured production files from being committed with placeholder or guessed resource IDs.
 
 ## Service Split Rule
 

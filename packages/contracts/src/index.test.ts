@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   AnnotationCreateSchema,
   ClaimCreateSchema,
+  ClaimEventCreateSchema,
   ClipRefSchema,
+  CommentCreateSchema,
   fixtures
 } from "./index";
 
@@ -56,6 +58,30 @@ describe("contract validation", () => {
       reason:
         "I own this source and want the annotation reviewed for attribution and fair-use boundaries.",
       requested_action: "review"
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts p50 public comments on annotations", () => {
+    const result = CommentCreateSchema.safeParse({
+      body: "This comment adds a useful source-level discussion note."
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects p95 empty comments", () => {
+    const result = CommentCreateSchema.safeParse({ body: "" });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts p50 claim events with optional status transitions", () => {
+    const result = ClaimEventCreateSchema.safeParse({
+      event_type: "status-change",
+      body: "Moderator requested more context from the claimant.",
+      status: "needs_info"
     });
 
     expect(result.success).toBe(true);

@@ -1,7 +1,7 @@
 import { SourceRefSchema, toSourceDomain } from "@annotated/contracts";
 import { Button, SourcePill } from "@annotated/ui";
-import { Clock, FileText, Layers, Scissors, Send, Settings, UserCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Clock, FileText, Layers, Mic, Scissors, Send, Settings, Square, UserCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   publishAnnotation,
   readActiveTabContext,
@@ -17,9 +17,16 @@ export function SidePanel() {
   const [mode, setMode] = useState<CaptureMode>("context");
   const [commentary, setCommentary] = useState("");
   const [captureKind, setCaptureKind] = useState<"video" | "text">("video");
+  const [commentaryMode, setCommentaryMode] = useState<"text" | "audio">("text");
+  const [startTime, setStartTime] = useState("00:04:23");
+  const [endTime, setEndTime] = useState("00:05:10");
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [recording, setRecording] = useState(false);
   const [status, setStatus] = useState<"idle" | "publishing" | "published">("idle");
   const [error, setError] = useState<string | null>(null);
   const [pageContext, setPageContext] = useState<PageCaptureContext | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
 
   const source = useMemo(
     () =>
@@ -41,19 +48,89 @@ export function SidePanel() {
       if (nextContext) {
         setPageContext(nextContext);
         if (nextContext.selection_text) setCaptureKind("text");
+        if (nextContext.media?.current_time != null) {
+          const start = Math.max(0, Math.floor(nextContext.media.current_time));
+          setStartTime(formatTimeInput(start));
+          setEndTime(formatTimeInput(start + 47));
+        }
       }
     });
   }, []);
+
+  function parseTimeInput(value: string): number {
+    if (value.includes(":")) {
+      const parts = value.split(":").map((part) => Number(part));
+      if (parts.some((part) => Number.isNaN(part))) return 0;
+      return parts.reduce((total, part) => total * 60 + part, 0);
+    }
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  function formatTimeInput(totalSeconds: number): string {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+  }
+
+  async function toggleRecording() {
+    setError(null);
+    if (recording) {
+      recorderRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Audio recording is not available in this browser context.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        setAudioBlob(new Blob(chunksRef.current, { type: "audio/webm" }));
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start();
+      setRecording(true);
+      setCommentaryMode("audio");
+    } catch {
+      setError("Microphone permission was blocked.");
+    }
+  }
 
   async function publish() {
     setStatus("publishing");
     setError(null);
     try {
-      await publishAnnotation(pageContext ?? {}, commentary, captureKind);
+      const startSeconds = parseTimeInput(startTime);
+      const endSeconds = parseTimeInput(endTime);
+      if (captureKind === "video" && endSeconds - startSeconds > 90) {
+        throw new Error("range_too_long");
+      }
+      await publishAnnotation({
+        context: pageContext ?? {},
+        commentary,
+        captureKind,
+        range: { start_seconds: startSeconds, end_seconds: endSeconds },
+        audioBlob: commentaryMode === "audio" ? audioBlob : null
+      });
       setStatus("published");
-    } catch {
+    } catch (caught) {
       setStatus("idle");
-      setError("Could not publish. Confirm the local API is running on port 8787.");
+      setError(
+        caught instanceof Error && caught.message === "range_too_long"
+          ? "Clip length must be 90 seconds or less."
+          : "Could not publish. Confirm the local API is running on port 8787."
+      );
     }
   }
 
@@ -117,12 +194,12 @@ export function SidePanel() {
             <div className="timecode-grid">
               <label>
                 IN
-                <input defaultValue="00:04:23" inputMode="numeric" />
+                <input value={startTime} onChange={(event) => setStartTime(event.target.value)} inputMode="numeric" />
               </label>
               <span aria-hidden="true">-</span>
               <label>
                 OUT
-                <input defaultValue="00:05:10" inputMode="numeric" />
+                <input value={endTime} onChange={(event) => setEndTime(event.target.value)} inputMode="numeric" />
               </label>
             </div>
           ) : (
@@ -140,6 +217,17 @@ export function SidePanel() {
               onChange={(event) => setCommentary(event.target.value)}
             />
           </label>
+          <div className="audio-row">
+            <button
+              type="button"
+              className={commentaryMode === "audio" ? "is-active" : ""}
+              onClick={toggleRecording}
+            >
+              {recording ? <Square size={15} aria-hidden="true" /> : <Mic size={15} aria-hidden="true" />}
+              {recording ? "Stop recording" : audioBlob ? "Re-record audio" : "Record audio"}
+            </button>
+            {audioBlob ? <span>{Math.ceil(audioBlob.size / 1024)} KB ready</span> : null}
+          </div>
         </section>
       ) : (
         <section className="empty-pane">

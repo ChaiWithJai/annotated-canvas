@@ -86,10 +86,12 @@ export function ClipReference({ clip }: { clip: ClipRef }) {
 export function AnnotationCard({
   annotation,
   onClaim,
+  onEngage,
   compact = false
 }: {
   annotation: AnnotationResource;
   onClaim?: (annotation: AnnotationResource) => void;
+  onEngage?: (annotation: AnnotationResource, type: "like" | "repost" | "discuss") => void;
   compact?: boolean;
 }) {
   const commentary = annotation.commentary.kind === "text" ? annotation.commentary.text : "Audio commentary";
@@ -110,15 +112,15 @@ export function AnnotationCard({
       <p className="annotation-card__commentary">{commentary}</p>
 
       <footer className="annotation-card__footer">
-        <span>
+        <button type="button" onClick={() => onEngage?.(annotation, "like")}>
           <Heart size={15} aria-hidden="true" /> {annotation.engagement.likes}
-        </span>
-        <span>
+        </button>
+        <button type="button" onClick={() => onEngage?.(annotation, "repost")}>
           <Repeat2 size={15} aria-hidden="true" /> {annotation.engagement.reposts}
-        </span>
-        <span>
+        </button>
+        <button type="button" onClick={() => onEngage?.(annotation, "discuss")}>
           <MessageCircle size={15} aria-hidden="true" /> {annotation.engagement.discussions}
-        </span>
+        </button>
         {onClaim ? (
           <button type="button" className="annotation-card__claim" onClick={() => onClaim(annotation)}>
             <Flag size={14} aria-hidden="true" />

@@ -53,4 +53,20 @@ describe("Annotated web shell", () => {
     expect(screen.getByText("Sign up with Google")).toBeInTheDocument();
     expect(screen.getByText("View public feed")).toBeInTheDocument();
   });
+
+  it("renders the bounty URL capture composer on the feed", () => {
+    renderAt("/");
+
+    expect(screen.getByRole("heading", { name: "Publish from a source link" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Source URL")).toBeInTheDocument();
+    expect(screen.getByLabelText("Commentary")).toBeInTheDocument();
+  });
+
+  it("renders comments on the permalink page", () => {
+    renderAt("/a/ann_video_minimalism");
+
+    expect(screen.getByText("Discussion")).toBeInTheDocument();
+    expect(screen.getByText(/source link matters here/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Add a comment")).toBeInTheDocument();
+  });
 });

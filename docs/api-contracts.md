@@ -100,6 +100,8 @@ Validation rules:
 | `POST` | `/api/annotations` | Publish a clip and commentary. |
 | `GET` | `/api/annotations/:id` | Fetch a permalink payload. |
 | `DELETE` | `/api/annotations/:id` | Author delete or moderator tombstone. |
+| `GET` | `/api/annotations/:id/comments` | List public comments on an annotation. |
+| `POST` | `/api/annotations/:id/comments` | Add a comment/discussion entry to an annotation. |
 
 `POST /api/annotations` requires `Idempotency-Key`.
 
@@ -138,6 +140,8 @@ Validation rules:
 | `POST` | `/api/claims/:id/events` | Add moderator or claimant event. |
 
 `POST /api/claims` should enqueue notification and moderation work. The API accepts the notice and records state; it does not adjudicate fair use automatically.
+
+`POST /api/claims/:id/events` records an auditable status or note event. A `status-change` event may move the claim to `needs_info`, `accepted`, `rejected`, or `withdrawn`.
 
 ### Uploads
 

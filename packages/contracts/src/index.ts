@@ -163,9 +163,44 @@ export const ClaimResourceSchema = z.object({
   created_at: z.string().datetime()
 });
 
+export const ClaimEventCreateSchema = z.object({
+  event_type: z.enum(["claimant-note", "moderator-note", "status-change"]),
+  body: z.string().min(1).max(5000),
+  status: ClaimResourceSchema.shape.status.optional()
+});
+
+export const ClaimEventResourceSchema = z.object({
+  id: z.string().min(1),
+  claim_id: z.string().min(1),
+  actor_id: z.string().min(1).optional(),
+  event_type: ClaimEventCreateSchema.shape.event_type,
+  body: z.string().min(1),
+  status: ClaimResourceSchema.shape.status.optional(),
+  created_at: z.string().datetime()
+});
+
 export const EngagementCreateSchema = z.object({
   type: z.enum(["like", "repost", "discuss"]),
   body: z.string().max(2000).optional()
+});
+
+export const CommentCreateSchema = z.object({
+  body: z.string().min(1).max(2000)
+});
+
+export const CommentResourceSchema = z.object({
+  id: z.string().min(1),
+  annotation_id: z.string().min(1),
+  author_id: z.string().min(1),
+  author: z.object({
+    id: z.string().min(1),
+    handle: z.string().min(1),
+    display_name: z.string().min(1),
+    avatar_url: z.string().url().optional(),
+    bio: z.string().optional()
+  }),
+  body: z.string().min(1),
+  created_at: z.string().datetime()
 });
 
 export const AuthProviderSchema = z.enum(["x", "google"]);
@@ -197,7 +232,11 @@ export type ClipRef = z.infer<typeof ClipRefSchema>;
 export type AnnotationCreate = z.infer<typeof AnnotationCreateSchema>;
 export type AnnotationResource = z.infer<typeof AnnotationResourceSchema>;
 export type ClaimCreate = z.infer<typeof ClaimCreateSchema>;
+export type ClaimEventCreate = z.infer<typeof ClaimEventCreateSchema>;
+export type ClaimEventResource = z.infer<typeof ClaimEventResourceSchema>;
 export type ClaimResource = z.infer<typeof ClaimResourceSchema>;
+export type CommentCreate = z.infer<typeof CommentCreateSchema>;
+export type CommentResource = z.infer<typeof CommentResourceSchema>;
 export type EngagementCreate = z.infer<typeof EngagementCreateSchema>;
 export type FeedResponse = z.infer<typeof FeedResponseSchema>;
 export type UserResource = z.infer<typeof UserResourceSchema>;
@@ -232,6 +271,23 @@ export const fixtures = {
       author_name: "Edge Notes"
     }
   },
+  comments: [
+    {
+      id: "cmt_launch_1",
+      annotation_id: "ann_video_minimalism",
+      author_id: "usr_ren",
+      author: {
+        id: "usr_ren",
+        handle: "ren",
+        display_name: "Ren Alvarez",
+        avatar_url:
+          "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=160&q=80",
+        bio: "Interface critic and product editor."
+      },
+      body: "The source link matters here because the clip is only useful with the surrounding argument.",
+      created_at: "2026-05-01T00:45:00.000Z"
+    }
+  ] satisfies CommentResource[],
   annotations: [
     {
       id: "ann_video_minimalism",
