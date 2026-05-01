@@ -245,7 +245,9 @@ curl "http://localhost:8787/api/auth/x/start?return_to=http://127.0.0.1:5173/"
 
 In demo mode, the API returns an authorization URL that points directly to the local callback instead of redirecting to a real provider.
 
-The extension currently shows a signed-out limitation message because real extension OAuth handoff is not complete. Publishing still works against the API using the server-side demo author until the auth branch lands real provider credentials and token handoff.
+Real OAuth requires `AUTH_MODE=oauth`, the `DB` and `SESSION_KV` bindings, and provider secrets for the selected provider. When those are present, callbacks exchange the provider code, link or create the local user, write the browser session, and allow `POST /api/auth/extension-token` to mint a one-hour extension handoff token for that web session.
+
+Production remains intentionally fail-closed until the Google and X OAuth apps are created and `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `X_CLIENT_ID`, and `X_CLIENT_SECRET` are installed as Worker secrets.
 
 ## Troubleshooting
 
