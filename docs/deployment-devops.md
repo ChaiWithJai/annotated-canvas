@@ -26,10 +26,11 @@ Native Cloudflare Git integration can be added later for preview ergonomics, but
 
 ## GitHub Actions Workflow
 
-The workflow in `.github/workflows/ci.yml` has two jobs:
+The workflow in `.github/workflows/ci.yml` has three production-relevant jobs:
 
 1. `verify` runs on pull requests and pushes to `main`.
-2. `deploy-production` runs only after `verify` passes on a push to `main`, or after a manual `workflow_dispatch` on `main` with `deploy_production=true`.
+2. `cloudflare_production_preflight` runs after `verify` on `main` push or manual dispatch and writes a summary explaining whether production deploy is eligible or skipped.
+3. `deploy-production` runs only when preflight says the explicit deploy gate is enabled on `main` and the event is a `push` or a manual `workflow_dispatch` with `deploy_production=true`.
 
 Verification commands:
 
@@ -44,6 +45,7 @@ npm run build
 Production deployment commands:
 
 ```bash
+npm run cf:preflight:ci -- --summary --require-secrets
 npm run cf:migrate:production
 npm exec -- wrangler deploy --config apps/api/wrangler.production.jsonc
 VITE_API_BASE_URL=https://annotated-canvas-api.<account>.workers.dev npm run build:web
@@ -63,23 +65,35 @@ Set these in the GitHub `production` environment, not only at repository level:
 
 `npm run cf:setup:production -- --apply --github` creates or reuses this environment and writes these secrets through `gh`. Configure required reviewers for the environment in GitHub repo settings before enabling unattended production deploys.
 
+The conservative CLI path keeps the deploy gate disabled until a human explicitly enables it:
+
+```bash
+gh api --method PUT repos/ChaiWithJai/annotated-canvas/environments/production
+printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | gh secret set CLOUDFLARE_ACCOUNT_ID --env production --body-file -
+printf '%s' "$CLOUDFLARE_API_TOKEN" | gh secret set CLOUDFLARE_API_TOKEN --env production --body-file -
+gh variable set CLOUDFLARE_DEPLOY_ENABLED --body false
+```
+
 Set this as a repository-level variable because it controls whether the production deploy job is allowed to run:
 
 | Variable | Purpose |
 | --- | --- |
 | `CLOUDFLARE_DEPLOY_ENABLED` | Set to `true` only after production resource IDs are committed and the GitHub `production` environment contains valid Cloudflare secrets. |
 
-The Cloudflare API token should be narrowly scoped. Minimum practical permissions:
+The Cloudflare API token should be narrowly scoped to the single production account. Minimum practical permissions for the current `workers.dev` plus Pages deployment:
 
-- Workers Scripts: Edit
-- Workers Routes: Edit, if production uses custom routes
-- Cloudflare Pages: Edit
-- Account Settings: Read
-- D1: Edit
-- Workers KV Storage: Edit
-- R2: Edit
-- Queues: Edit
-- Durable Objects: Edit, when applying Durable Object migrations through Worker deploys
+| Resource | Permission |
+| --- | --- |
+| Account | Account Settings: Read |
+| Account | Workers Scripts: Edit |
+| Account | Cloudflare Pages: Edit |
+| Account | D1: Edit |
+| Account | Workers KV Storage: Edit |
+| Account | Queues: Edit |
+| User | User Details: Read |
+| User | Memberships: Read |
+
+Do not grant zone resources for the current deployment. Add `Zone > Workers Routes: Edit` only when a custom domain route is introduced, and scope it to that zone. Add `Account > Workers R2 Storage: Edit` only after R2 is enabled and `MEDIA_BUCKET` returns to `apps/api/wrangler.production.jsonc`. Durable Object migrations are part of the Worker deploy and do not require a separate Cloudflare API-token permission.
 
 Do not put application secrets in `vars` inside `wrangler.jsonc`. Use Worker secrets for sensitive values. With the GitHub-first path, run these with `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` exported, or perform the equivalent through an approved secret-management workflow:
 
@@ -112,6 +126,28 @@ Confirm `apps/api/wrangler.production.jsonc` contains the generated identifiers 
 - preview/staging IDs under `env.preview` or `env.staging` when those environments are added
 
 The bootstrap script patches the D1 and KV identifiers automatically when it can resolve them from Wrangler output. The local Wrangler file intentionally uses demo values. Production deploys use `apps/api/wrangler.production.jsonc`, which intentionally contains placeholder IDs until Cloudflare resources are created.
+
+## Production Deploy Trigger
+
+Once the production environment contains secrets, the environment has required reviewers, and the deploy gate is approved:
+
+```bash
+gh variable set CLOUDFLARE_DEPLOY_ENABLED --body true
+gh workflow run "CI and Deploy" --ref main -f deploy_production=true
+```
+
+The same deploy path also runs on future pushes to `main` while `CLOUDFLARE_DEPLOY_ENABLED=true`. Set the variable back to `false` to freeze production deployment without changing the workflow:
+
+```bash
+gh variable set CLOUDFLARE_DEPLOY_ENABLED --body false
+```
+
+Acceptance criteria for proving #22:
+
+- `verify` passes on `main`.
+- `cloudflare_production_preflight` reports the deploy gate enabled on `refs/heads/main`.
+- `deploy-production` reaches the GitHub `production` environment and fails before Wrangler if either Cloudflare secret is absent.
+- With both secrets present, `deploy-production` applies production D1 migrations, deploys the Worker, builds web with the deployed Worker URL, deploys Pages, and writes Worker/Pages URLs to the step summary.
 
 ## Local And Remote D1 Migrations
 

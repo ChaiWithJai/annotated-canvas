@@ -49,16 +49,45 @@ jobs:
       - name: Build
         run: npm run build
 
-  deploy-production:
-    name: Deploy production Cloudflare
+  cloudflare_production_preflight:
+    name: Cloudflare production preflight
     needs: verify
     runs-on: ubuntu-latest
-    # CLOUDFLARE_DEPLOY_ENABLED is a repository-level deploy gate. Production
-    # credentials remain in the GitHub production environment.
     if: >-
-      vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' &&
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy_production))
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    outputs:
+      should_deploy: ${{ steps.preflight.outputs.should_deploy }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Report Cloudflare deploy readiness
+        id: preflight
+        run: npm run cf:preflight:ci -- --summary --set-output
+        env:
+          CLOUDFLARE_DEPLOY_ENABLED: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED }}
+          DEPLOY_PRODUCTION_INPUT: ${{ inputs.deploy_production }}
+          CLOUDFLARE_ACCOUNT_ID_PRESENT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+          CLOUDFLARE_API_TOKEN_PRESENT: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+
+  deploy-production:
+    name: Deploy production Cloudflare
+    needs:
+      - verify
+      - cloudflare_production_preflight
+    runs-on: ubuntu-latest
+    # Deployment stays fail-closed: the visible preflight job decides whether the
+    # explicit repository gate and main-branch trigger allow production mutation.
+    if: >-
+      always() &&
+      needs.verify.result == 'success' &&
+      needs.cloudflare_production_preflight.outputs.should_deploy == 'true'
     environment:
       name: production
       url: ${{ steps.deploy-pages.outputs.deployment-url }}
@@ -77,6 +106,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify production Cloudflare credentials
+        run: npm run cf:preflight:ci -- --summary --require-secrets
+        env:
+          CLOUDFLARE_DEPLOY_ENABLED: ${{ vars.CLOUDFLARE_DEPLOY_ENABLED }}
+          DEPLOY_PRODUCTION_INPUT: ${{ inputs.deploy_production }}
+          CLOUDFLARE_ACCOUNT_ID_PRESENT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+          CLOUDFLARE_API_TOKEN_PRESENT: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
 
       - name: Apply remote D1 migrations
         run: npm run cf:migrate:production

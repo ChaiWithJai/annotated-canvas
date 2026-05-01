@@ -141,6 +141,12 @@ Suggested bindings:
 - Rate-limit publish, claim filing, and engagement mutation endpoints.
 - Create explicit moderation states: `open`, `needs_info`, `accepted`, `rejected`, `withdrawn`.
 
+## Deployment Control Plane
+
+Production deployment is owned by GitHub Actions, not local laptops. The ordered path is `verify`, `cloudflare_production_preflight`, then `deploy-production` against the GitHub `production` environment. The preflight job makes skipped deployments visible when `CLOUDFLARE_DEPLOY_ENABLED` is not `true`; the production job repeats credential preflight after environment approval so missing Cloudflare secrets fail before D1 migrations, Worker deploy, or Pages deploy can mutate production.
+
+Local Wrangler remains a guarded fallback for resource bootstrap and emergency deploys. The fallback must use the same `apps/api/wrangler.production.jsonc` config and should not bypass the documented GitHub environment secret setup for normal releases.
+
 ## Architecture Sources
 
 - Cloudflare Workers Static Assets: https://developers.cloudflare.com/workers/static-assets/
