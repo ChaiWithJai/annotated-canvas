@@ -126,7 +126,7 @@ jobs:
         run: |
           set -euo pipefail
           npm exec -- wrangler deploy --config apps/api/wrangler.production.jsonc | tee wrangler-deploy.log
-          url="$(grep -Eo 'https://[^ ]+\\.workers\\.dev' wrangler-deploy.log | tail -n 1 || true)"
+          url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' wrangler-deploy.log | tail -n 1 || true)"
           if [ -z "$url" ]; then
             echo "::error::Could not parse Worker .workers.dev URL from Wrangler deploy output."
             exit 1
@@ -146,7 +146,7 @@ jobs:
         run: |
           set -euo pipefail
           npm exec -- wrangler pages deploy dist/web --project-name annotated-canvas --branch main | tee wrangler-pages.log
-          url="$(grep -Eo 'https://[^ ]+\\.pages\\.dev' wrangler-pages.log | tail -n 1 || true)"
+          url="$(grep -Eo 'https://[^[:space:]]+\.pages\.dev' wrangler-pages.log | tail -n 1 || true)"
           echo "deployment-url=${url:-https://annotated-canvas.pages.dev}" >> "$GITHUB_OUTPUT"
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
