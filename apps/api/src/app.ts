@@ -1,5 +1,7 @@
 import {
+  AUDIO_COMMENTARY_MAX_BYTES,
   AnnotationCreateSchema,
+  AudioCommentaryUploadResponseSchema,
   AuthProviderSchema,
   ClaimCreateSchema,
   ClaimEventCreateSchema,
@@ -48,6 +50,8 @@ const DEMO_USER = {
   handle: "mira",
   display_name: "Mira Chen"
 };
+
+const ALLOWED_AUDIO_COMMENTARY_TYPES = new Set(["audio/webm", "audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav"]);
 
 const defaultRepositories = new Map<string, InMemoryRepository>();
 
@@ -138,6 +142,54 @@ function requireIdempotencyKey(request: Request): string | Response {
     return new Response("missing idempotency key", { status: 428 });
   }
   return key;
+}
+
+function normalizeContentType(value: string | null): string {
+  return (value ?? "application/octet-stream").split(";")[0]?.trim().toLowerCase() || "application/octet-stream";
+}
+
+async function findAudioCommentaryAsset(env: Env, audioAssetId: string) {
+  const metadata = await env.SESSION_KV?.get(`media_asset:${audioAssetId}`);
+  if (!metadata) return null;
+
+  try {
+    const parsed = AudioCommentaryUploadResponseSchema.safeParse(JSON.parse(metadata));
+    if (!parsed.success || parsed.data.asset_id !== audioAssetId || parsed.data.status !== "stored") return null;
+
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+async function validateAudioCommentaryAsset(env: Env, request: Request, audioAssetId: string): Promise<Response | null> {
+  if (!env.SESSION_KV) {
+    return error(env, 503, "audio_storage_not_configured", "Audio commentary assets require durable storage metadata.", {
+      missing: ["SESSION_KV"]
+    }, request);
+  }
+
+  const metadata = await env.SESSION_KV.get(`media_asset:${audioAssetId}`);
+  if (!metadata) {
+    return error(env, 400, "audio_asset_not_found", "Audio commentary must reference a finalized uploaded asset.", {
+      audio_asset_id: audioAssetId
+    }, request);
+  }
+
+  try {
+    const asset = await findAudioCommentaryAsset(env, audioAssetId);
+    if (!asset) {
+      return error(env, 400, "audio_asset_not_finalized", "Audio commentary asset is not finalized.", {
+        audio_asset_id: audioAssetId
+      }, request);
+    }
+  } catch {
+    return error(env, 400, "audio_asset_not_finalized", "Audio commentary asset is not finalized.", {
+      audio_asset_id: audioAssetId
+    }, request);
+  }
+
+  return null;
 }
 
 function queueJob(type: QueueJob["type"], ids: Partial<Pick<QueueJob, "annotation_id" | "claim_id">>): QueueJob {
@@ -734,6 +786,11 @@ export async function handleRequest(request: Request, env: Env, services = makeS
       return error(env, 400, "invalid_annotation", "Annotation payload failed validation.", parsed.error.flatten());
     }
 
+    if (parsed.data.commentary.kind === "audio") {
+      const audioAssetError = await validateAudioCommentaryAsset(env, request, parsed.data.commentary.audio_asset_id);
+      if (audioAssetError) return audioAssetError;
+    }
+
     const annotation = await services.repository.publishAnnotation(parsed.data, idempotencyKey);
     await services.jobs.send(queueJob("feed_fanout", { annotation_id: annotation.id }));
     return json(env, { annotation }, { status: 201 });
@@ -862,13 +919,155 @@ export async function handleRequest(request: Request, env: Env, services = makeS
     }
   }
 
+  const audioCommentaryMatch = url.pathname.match(/^\/api\/uploads\/audio-commentary\/([^/]+)$/);
+  if (audioCommentaryMatch && request.method === "GET") {
+    if (!env.SESSION_KV) {
+      return error(env, 503, "audio_storage_not_configured", "Audio commentary assets require durable storage metadata.", {
+        missing: ["SESSION_KV"]
+      }, request);
+    }
+
+    const asset = await findAudioCommentaryAsset(env, audioCommentaryMatch[1]);
+    if (!asset) {
+      return error(env, 404, "audio_asset_not_found", "No stored audio commentary exists for that asset id.", {
+        audio_asset_id: audioCommentaryMatch[1]
+      }, request);
+    }
+
+    let bytes: ArrayBuffer | null = null;
+    if (asset.storage === "r2") {
+      if (!env.MEDIA_BUCKET || !asset.r2_key) {
+        return error(env, 503, "audio_storage_not_configured", "Audio commentary R2 storage is not configured.", {
+          missing: ["MEDIA_BUCKET"]
+        }, request);
+      }
+      const object = await env.MEDIA_BUCKET.get(asset.r2_key);
+      bytes = object ? await object.arrayBuffer() : null;
+    } else if (asset.kv_key) {
+      bytes = await env.SESSION_KV.get(asset.kv_key, "arrayBuffer");
+    }
+
+    if (!bytes) {
+      return error(env, 404, "audio_asset_not_found", "Stored audio commentary bytes were not found.", {
+        audio_asset_id: audioCommentaryMatch[1]
+      }, request);
+    }
+
+    return new Response(bytes, {
+      headers: {
+        "Content-Type": asset.content_type ?? "audio/webm",
+        "Content-Length": String(bytes.byteLength),
+        "Cache-Control": "private, max-age=300",
+        ...corsHeaders(env, request)
+      }
+    });
+  }
+
   if (url.pathname === "/api/uploads/audio-commentary" && request.method === "POST") {
     const id = `upl_${crypto.randomUUID()}`;
     const key = `audio-commentary/${id}.webm`;
-    if (env.MEDIA_BUCKET && request.body) {
-      await env.MEDIA_BUCKET.put(key, request.body, {
+    const contentType = normalizeContentType(request.headers.get("Content-Type"));
+    const declaredLength = Number(request.headers.get("Content-Length") ?? "0");
+    if (!ALLOWED_AUDIO_COMMENTARY_TYPES.has(contentType)) {
+      return error(env, 415, "unsupported_audio_type", "Audio commentary must be a supported browser audio type.", {
+        allowed: Array.from(ALLOWED_AUDIO_COMMENTARY_TYPES),
+        received: contentType
+      }, request);
+    }
+
+    if (declaredLength > AUDIO_COMMENTARY_MAX_BYTES) {
+      return error(env, 413, "audio_too_large", "Audio commentary exceeds the maximum upload size.", {
+        max_bytes: AUDIO_COMMENTARY_MAX_BYTES
+      }, request);
+    }
+
+    if (!request.body) {
+      return json(env, {
+        upload: {
+          id,
+          asset_id: id,
+          kind: "audio-commentary",
+          storage: "kv",
+          kv_key: `media_blob:${id}`,
+          max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+          status: "intent-created"
+        }
+      });
+    }
+
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength === 0) {
+      return error(env, 400, "empty_audio_upload", "Audio commentary upload cannot be empty.", {}, request);
+    }
+
+    if (bytes.byteLength > AUDIO_COMMENTARY_MAX_BYTES) {
+      return error(env, 413, "audio_too_large", "Audio commentary exceeds the maximum upload size.", {
+        max_bytes: AUDIO_COMMENTARY_MAX_BYTES
+      }, request);
+    }
+
+    if (env.MEDIA_BUCKET) {
+      await env.MEDIA_BUCKET.put(key, bytes, {
         httpMetadata: {
-          contentType: request.headers.get("Content-Type") ?? "audio/webm"
+          contentType
+        }
+      });
+
+      if (env.SESSION_KV) {
+        await env.SESSION_KV.put(`media_asset:${id}`, JSON.stringify({
+          id,
+          asset_id: id,
+          kind: "audio-commentary",
+          storage: "r2",
+          r2_key: key,
+          content_type: contentType,
+          byte_length: bytes.byteLength,
+          max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+          status: "stored"
+        }));
+      }
+
+      return json(env, {
+        upload: {
+          id,
+          asset_id: id,
+          kind: "audio-commentary",
+          storage: "r2",
+          r2_key: key,
+          content_type: contentType,
+          byte_length: bytes.byteLength,
+          max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+          status: "stored"
+        }
+      });
+    }
+
+    if (env.SESSION_KV) {
+      const kvKey = `media_blob:${id}`;
+      await env.SESSION_KV.put(kvKey, bytes);
+      await env.SESSION_KV.put(`media_asset:${id}`, JSON.stringify({
+        id,
+        asset_id: id,
+        kind: "audio-commentary",
+        storage: "kv",
+        kv_key: kvKey,
+        content_type: contentType,
+        byte_length: bytes.byteLength,
+        max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+        status: "stored"
+      }));
+
+      return json(env, {
+        upload: {
+          id,
+          asset_id: id,
+          kind: "audio-commentary",
+          storage: "kv",
+          kv_key: kvKey,
+          content_type: contentType,
+          byte_length: bytes.byteLength,
+          max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+          status: "stored"
         }
       });
     }
@@ -878,10 +1077,10 @@ export async function handleRequest(request: Request, env: Env, services = makeS
         id,
         asset_id: id,
         kind: "audio-commentary",
-        storage: "r2",
-        r2_key: key,
-        max_bytes: 25 * 1024 * 1024,
-        status: env.MEDIA_BUCKET && request.body ? "stored" : "intent-created"
+        storage: "kv",
+        kv_key: `media_blob:${id}`,
+        max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+        status: "intent-created"
       }
     });
   }

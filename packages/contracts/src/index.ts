@@ -210,10 +210,48 @@ export const AudioCommentaryUploadResponseSchema = z
     id: z.string().min(1),
     asset_id: z.string().min(1),
     kind: z.literal("audio-commentary"),
-    storage: z.literal("r2"),
-    r2_key: z.string().min(1),
+    storage: z.enum(["r2", "kv"]),
+    r2_key: z.string().min(1).optional(),
+    kv_key: z.string().min(1).optional(),
+    content_type: z.string().min(1).optional(),
+    byte_length: z.number().int().nonnegative().optional(),
     max_bytes: z.literal(AUDIO_COMMENTARY_MAX_BYTES),
     status: z.enum(["intent-created", "stored"])
+  })
+  .superRefine((upload, ctx) => {
+    if (upload.storage === "r2" && !upload.r2_key) {
+      ctx.addIssue({
+        code: "custom",
+        message: "r2_key is required for R2-backed audio uploads",
+        path: ["r2_key"]
+      });
+    }
+
+    if (upload.storage === "kv" && !upload.kv_key) {
+      ctx.addIssue({
+        code: "custom",
+        message: "kv_key is required for KV-backed audio uploads",
+        path: ["kv_key"]
+      });
+    }
+
+    if (upload.status === "stored") {
+      if (!upload.content_type) {
+        ctx.addIssue({
+          code: "custom",
+          message: "content_type is required for stored audio uploads",
+          path: ["content_type"]
+        });
+      }
+
+      if (typeof upload.byte_length !== "number" || upload.byte_length <= 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: "byte_length must be positive for stored audio uploads",
+          path: ["byte_length"]
+        });
+      }
+    }
   })
   .strict();
 

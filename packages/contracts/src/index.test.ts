@@ -113,7 +113,7 @@ describe("contract validation", () => {
     expect(result.success).toBe(false);
   });
 
-  it("documents the current audio upload response as intent or stored, not finalized", () => {
+  it("accepts R2-backed audio upload metadata", () => {
     const result = AudioCommentaryUploadResponseSchema.parse({
       id: "upl_audio",
       asset_id: "upl_audio",
@@ -125,6 +125,52 @@ describe("contract validation", () => {
     });
 
     expect(result.status).toBe("intent-created");
+  });
+
+  it("accepts KV-backed audio upload metadata when R2 is unavailable", () => {
+    const result = AudioCommentaryUploadResponseSchema.parse({
+      id: "upl_audio",
+      asset_id: "upl_audio",
+      kind: "audio-commentary",
+      storage: "kv",
+      kv_key: "media_blob:upl_audio",
+      content_type: "audio/webm",
+      byte_length: 512,
+      max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+      status: "stored"
+    });
+
+    expect(result.storage).toBe("kv");
+    expect(result.status).toBe("stored");
+  });
+
+  it("rejects stored audio upload metadata without finalized byte details", () => {
+    const result = AudioCommentaryUploadResponseSchema.safeParse({
+      id: "upl_audio",
+      asset_id: "upl_audio",
+      kind: "audio-commentary",
+      storage: "kv",
+      kv_key: "media_blob:upl_audio",
+      max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+      status: "stored"
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects KV-backed audio upload metadata without a KV blob key", () => {
+    const result = AudioCommentaryUploadResponseSchema.safeParse({
+      id: "upl_audio",
+      asset_id: "upl_audio",
+      kind: "audio-commentary",
+      storage: "kv",
+      content_type: "audio/webm",
+      byte_length: 512,
+      max_bytes: AUDIO_COMMENTARY_MAX_BYTES,
+      status: "stored"
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("documents owned-video uploads as intent-only until 240p processing exists", () => {
