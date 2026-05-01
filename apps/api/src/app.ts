@@ -35,6 +35,7 @@ interface OAuthState {
 }
 
 interface AuthSession {
+  session_id?: string;
   user_id: string;
   provider?: AuthProvider;
   handle?: string;
@@ -177,6 +178,7 @@ function missingOAuthConfig(env: Env, provider: AuthProvider): string[] {
   return [
     !credentials.clientId ? credentials.clientIdName : null,
     !credentials.clientSecret ? credentials.clientSecretName : null,
+    !env.DB ? "DB" : null,
     !env.SESSION_KV ? "SESSION_KV" : null
   ].filter((item): item is string => Boolean(item));
 }
@@ -266,7 +268,7 @@ async function requireOAuthSession(request: Request, env: Env): Promise<AuthSess
     return error(env, 401, "authentication_required", "A valid session is required.", {}, request);
   }
 
-  return session;
+  return { ...session, session_id: sessionId };
 }
 
 function resolveReturnTo(env: Env, rawReturnTo: string | null): string {
@@ -360,12 +362,7 @@ async function findUniqueHandle(db: D1Database, desiredHandle: string, userId?: 
 async function upsertOAuthUser(env: Env, profile: OAuthProviderProfile): Promise<PersistedOAuthUser> {
   const fallbackHandle = `${profile.provider}_${profile.provider_account_id}`;
   if (!env.DB) {
-    return {
-      id: `usr_${profile.provider}_${profile.provider_account_id}`,
-      handle: normalizeHandle(profile.handle, fallbackHandle),
-      display_name: profile.display_name,
-      avatar_url: profile.avatar_url
-    };
+    throw new Error("db_required");
   }
 
   const existing = await env.DB
@@ -442,6 +439,7 @@ async function storeExtensionToken(env: Env, session: AuthSession): Promise<{ to
       `extension_token:${token}`,
       JSON.stringify({
         user_id: session.user_id,
+        session_id: session.session_id,
         provider: session.provider,
         handle: session.handle,
         display_name: session.display_name
