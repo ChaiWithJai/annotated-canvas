@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   API_BASE,
   ApiRequestError,
+  CLERK_CLIENT_CONFIGURED,
   loadCurrentViewer,
   loadAnnotation,
   loadComments,
@@ -155,6 +156,10 @@ export function App() {
 
   function authErrorMessage(error: unknown, provider: AuthProvider) {
     if (error instanceof ApiRequestError) {
+      if (error.code === "clerk_client_not_configured") {
+        return "Sign-in setup is pending.";
+      }
+
       const configuredError =
         error.code?.includes("not_configured") || error.message.toLowerCase().includes("configured");
       return configuredError ? `${providerLabel(provider)} sign-in is not configured yet.` : error.message;
@@ -359,22 +364,30 @@ export function App() {
               </figure>
             </section>
             <div className="marketing-actions">
-              <button
-                type="button"
-                className="marketing-button marketing-button--primary"
-                onClick={() => void handleAuthStart("google")}
-                disabled={authPending !== null}
-              >
-                {authPending === "google" ? "Starting Google..." : "Sign in with Google"}
-              </button>
-              <button
-                type="button"
-                className="marketing-button"
-                onClick={() => void handleAuthStart("x")}
-                disabled={authPending !== null}
-              >
-                {authPending === "x" ? "Starting X..." : "Sign in with X"}
-              </button>
+              {CLERK_CLIENT_CONFIGURED ? (
+                <>
+                  <button
+                    type="button"
+                    className="marketing-button marketing-button--primary"
+                    onClick={() => void handleAuthStart("google")}
+                    disabled={authPending !== null}
+                  >
+                    {authPending === "google" ? "Starting Google..." : "Sign in with Google"}
+                  </button>
+                  <button
+                    type="button"
+                    className="marketing-button"
+                    onClick={() => void handleAuthStart("x")}
+                    disabled={authPending !== null}
+                  >
+                    {authPending === "x" ? "Starting X..." : "Sign in with X"}
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="marketing-button marketing-button--primary" disabled>
+                  Sign-in setup pending
+                </button>
+              )}
               <button type="button" onClick={() => navigate("feed")}>
                 View public feed
               </button>
@@ -386,6 +399,20 @@ export function App() {
               <div className="auth-recovery" role="alert">
                 <strong>{authError}</strong>
                 <p>For review, load the unpacked extension and use the production API in Settings.</p>
+                <div className="auth-recovery__actions">
+                  <button type="button" onClick={() => navigate("feed")}>
+                    View feed
+                  </button>
+                  <a href={REVIEWER_GUIDE_URL} target="_blank" rel="noreferrer">
+                    Install extension
+                  </a>
+                </div>
+              </div>
+            ) : null}
+            {!CLERK_CLIENT_CONFIGURED ? (
+              <div className="auth-recovery" role="status">
+                <strong>Sign-in setup is pending.</strong>
+                <p>Public feed, permalink, extension capture, comments, claims, and audio storage are available while Clerk keys are installed.</p>
                 <div className="auth-recovery__actions">
                   <button type="button" onClick={() => navigate("feed")}>
                     View feed
