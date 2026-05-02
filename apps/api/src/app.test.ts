@@ -715,6 +715,45 @@ describe("API router regression coverage", () => {
     expect(payload.error.details.missing).toContain("CLERK_SECRET_KEY");
   });
 
+  it("fails legacy provider start closed in Clerk mode instead of returning a bare callback URL", async () => {
+    const response = await handleRequest(
+      request("/api/auth/google/start?return_to=/signup"),
+      {
+        ...env,
+        AUTH_MODE: "clerk"
+      },
+      { repository, jobs }
+    );
+    const payload = await body(response);
+
+    expect(response.status).toBe(503);
+    expect(payload.error.code).toBe("auth_not_configured");
+    expect(payload.error.details).toMatchObject({
+      strategy: "clerk",
+      provider: "google"
+    });
+    expect(payload.error.details.missing).toContain("VITE_CLERK_PUBLISHABLE_KEY");
+    expect(payload.authorization_url).toBeUndefined();
+  });
+
+  it("redirects stale legacy OAuth callbacks back to signup in Clerk mode", async () => {
+    const response = await handleRequest(
+      request("/api/auth/x/callback"),
+      {
+        ...env,
+        AUTH_MODE: "clerk",
+        APP_ORIGIN: "https://annotated-canvas.pages.dev"
+      },
+      { repository, jobs }
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(
+      "https://annotated-canvas.pages.dev/signup?auth_error=clerk_required&provider=x"
+    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("deletes the session on logout when session KV is available", async () => {
     const sessionKv = createSessionKv({
       "session:ses_valid": JSON.stringify({
