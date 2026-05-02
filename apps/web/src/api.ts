@@ -11,6 +11,7 @@ import {
 
 export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://localhost:8787" : "");
+export const CLERK_CLIENT_CONFIGURED = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 const shouldFetch = import.meta.env.MODE !== "test";
 
 export type AuthProvider = "google" | "x";
@@ -95,6 +96,14 @@ export async function startAuth(provider: AuthProvider, returnTo: string): Promi
   if (authRedirectHandler) {
     await authRedirectHandler(provider, returnTo);
     return "";
+  }
+
+  if (!CLERK_CLIENT_CONFIGURED) {
+    throw new ApiRequestError(
+      503,
+      "Sign-in setup is pending. Clerk keys are not installed for this deployment.",
+      "clerk_client_not_configured"
+    );
   }
 
   const search = new URLSearchParams({ return_to: returnTo });

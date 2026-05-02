@@ -100,7 +100,8 @@ describe("Annotated web shell", () => {
     expect(screen.getByRole("heading", { name: /browse first/i })).toBeInTheDocument();
     expect(screen.getByAltText(/selected text ready to publish/i)).toBeInTheDocument();
     expect(screen.getByAltText(/published selected-text annotation/i)).toBeInTheDocument();
-    expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign-in setup pending" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Sign-in setup is pending.");
     expect(screen.getByText("View public feed")).toBeInTheDocument();
     expect(screen.getByText("Extension install guide")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /see the feed, load the extension/i })).toBeInTheDocument();
@@ -118,78 +119,24 @@ describe("Annotated web shell", () => {
     expect(screen.getByText("Signed out")).toBeInTheDocument();
   });
 
-  it("opens provider choice from header and renders missing-provider errors inline", async () => {
+  it("opens signup from header and shows setup-pending auth instead of dead provider buttons", async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.mocked(fetch);
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = requestUrl(input);
-
-      if (url.includes("/api/me")) {
-        return jsonResponse({ user: null });
-      }
-
-      if (url.includes("/api/auth/google/start")) {
-        return jsonResponse(
-          {
-            error: {
-              code: "auth_provider_not_configured",
-              message: "Google sign-in is not configured."
-            }
-          },
-          503
-        );
-      }
-
-      return defaultFetch(input);
-    });
 
     renderAt("/");
 
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     expect(screen.getByRole("heading", { name: /save the exact moment/i })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/auth/google/start?"), {
-        method: "GET"
-      });
-    });
-    expect(screen.getByRole("alert")).toHaveTextContent(/google sign-in is not configured/i);
-    expect(screen.getByRole("alert")).toHaveTextContent(/load the unpacked extension/i);
+    expect(screen.queryByRole("button", { name: /sign in with google/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign in with x/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign-in setup pending" })).toBeDisabled();
     expect(screen.getByText("Install extension")).toBeInTheDocument();
   });
 
-  it("starts X auth through fetch and follows the returned authorization URL", async () => {
-    const user = userEvent.setup();
-    const fetchMock = vi.mocked(fetch);
-    let authorizationUrl = "";
-
-    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
-      const url = requestUrl(input);
-
-      if (url.includes("/api/me")) {
-        return jsonResponse({ user: null });
-      }
-
-      if (url.includes("/api/auth/x/start")) {
-        return jsonResponse({ authorization_url: authorizationUrl });
-      }
-
-      return defaultFetch(input);
-    });
-
+  it("does not call legacy provider start routes in a no-Clerk client build", async () => {
     renderAt("/home");
-    authorizationUrl = new URL("/oauth/x", window.location.href).toString();
 
-    await user.click(screen.getByRole("button", { name: /sign in with x/i }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/auth/x/start?"), {
-        method: "GET"
-      });
-      expect(window.location.href).toBe(authorizationUrl);
-    });
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining("/api/auth/x/start?"), expect.anything());
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining("/api/auth/google/start?"), expect.anything());
   });
 
   it("renders the bounty URL capture composer on the feed", () => {
