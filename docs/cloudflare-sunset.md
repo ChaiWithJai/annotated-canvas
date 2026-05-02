@@ -2,11 +2,11 @@
 
 Date: 2026-05-02
 
-This document records the Cloudflare state at project sunset. It is intentionally non-destructive. The production deployment is frozen from GitHub, but Cloudflare resources are left in place for audit, rollback, and owner-controlled deletion.
+This document records the Cloudflare state at project sunset and final teardown.
 
 ## Action Taken
 
-Production deploy mutation from GitHub was disabled:
+Production deploy mutation from GitHub was disabled first:
 
 ```bash
 gh variable set CLOUDFLARE_DEPLOY_ENABLED --repo ChaiWithJai/annotated-canvas --body false
@@ -19,6 +19,8 @@ Observed value after the change:
 false
 ```
 
+After owner instruction to fully shut down Cloudflare, the live resources were deleted on 2026-05-02.
+
 ## Cloudflare Account
 
 Wrangler authenticated as `jaybhagat841@gmail.com` against account `2cae9fab2f7e6170185b99f8b68d19b7`.
@@ -27,15 +29,15 @@ Wrangler authenticated as `jaybhagat841@gmail.com` against account `2cae9fab2f7e
 
 | Resource | Name / URL | State |
 | --- | --- | --- |
-| Pages project | `annotated-canvas` | Present |
-| Pages domain | `https://annotated-canvas.pages.dev` | Present |
-| Worker | `annotated-canvas-api` | Present |
-| Worker URL | `https://annotated-canvas-api.jaybhagat841.workers.dev` | Present |
-| D1 database | `annotated_canvas` | Present |
-| KV namespace | `SESSION_KV` | Present |
-| R2 bucket | `annotated-canvas-media` | Present |
-| Queue | `annotated-canvas-jobs` | Present |
-| Dead-letter queue | `annotated-canvas-dlq` | Present |
+| Pages project | `annotated-canvas` | Deleted |
+| Pages domain | `https://annotated-canvas.pages.dev` | Deleted / no app service |
+| Worker | `annotated-canvas-api` | Deleted |
+| Worker URL | `https://annotated-canvas-api.jaybhagat841.workers.dev` | Deleted / no app service |
+| D1 database | `annotated_canvas` | Deleted |
+| KV namespace | `SESSION_KV` | Deleted |
+| R2 bucket | `annotated-canvas-media` | Emptied and deleted |
+| Queue | `annotated-canvas-jobs` | Deleted |
+| Dead-letter queue | `annotated-canvas-dlq` | Deleted |
 
 ## Resource IDs
 
@@ -49,7 +51,7 @@ Wrangler authenticated as `jaybhagat841@gmail.com` against account `2cae9fab2f7e
 
 ## Secret State
 
-Worker secret inventory at sunset:
+Worker secret inventory before Worker deletion:
 
 ```text
 []
@@ -58,9 +60,10 @@ Worker secret inventory at sunset:
 Repository-level GitHub secrets visible by name:
 
 ```text
-CLOUDFLARE_ACCOUNT_ID
-CLOUDFLARE_API_TOKEN
+[]
 ```
+
+The GitHub Cloudflare deploy variable was also removed after teardown.
 
 Missing/unused auth configuration:
 
@@ -71,30 +74,59 @@ Missing/unused auth configuration:
 - `X_CLIENT_ID`
 - `X_CLIENT_SECRET`
 
-## Why Resources Were Not Deleted
-
-Deletion is irreversible for useful audit artifacts and may destroy evidence that explains the project outcome. The safe sunset action is to freeze deployment first, write the inventory, close work as not planned, and let the account owner decide whether to remove Cloudflare resources later.
-
-## Optional Owner Teardown Commands
-
-Run these only after exporting the right account credentials and confirming the archive is no longer needed.
+## Teardown Commands Run
 
 ```bash
-npm exec -- wrangler pages project delete annotated-canvas
-npm exec -- wrangler delete annotated-canvas-api --config apps/api/wrangler.production.jsonc
-npm exec -- wrangler d1 delete annotated_canvas
-npm exec -- wrangler kv namespace delete --namespace-id 46ef271ad63242ea86c3a657f05fa556
+npm exec -- wrangler pages project delete annotated-canvas --yes
+npm exec -- wrangler queues consumer remove annotated-canvas-jobs annotated-canvas-api
+npm exec -- wrangler delete annotated-canvas-api --config apps/api/wrangler.production.jsonc --force
+npm exec -- wrangler d1 delete annotated_canvas --skip-confirmation
+npm exec -- wrangler kv namespace delete --namespace-id 46ef271ad63242ea86c3a657f05fa556 --skip-confirmation
 npm exec -- wrangler queues delete annotated-canvas-jobs
 npm exec -- wrangler queues delete annotated-canvas-dlq
+npm exec -- wrangler r2 object delete annotated-canvas-media/audio-commentary/upl_4b3cc552-6aeb-416b-9519-28b05fcd76da.webm --remote
+npm exec -- wrangler r2 object delete annotated-canvas-media/audio-commentary/upl_6e6a762c-9e41-49c8-aa41-3fffe4bcb3d5.webm --remote
+npm exec -- wrangler r2 object delete annotated-canvas-media/audio-commentary/upl_8024957a-1465-4623-9386-c0d8aee52a1b.webm --remote
 npm exec -- wrangler r2 bucket delete annotated-canvas-media
 ```
 
-Before running teardown, also remove or rotate GitHub secrets:
+GitHub cleanup:
 
 ```bash
 gh secret delete CLOUDFLARE_ACCOUNT_ID --repo ChaiWithJai/annotated-canvas
 gh secret delete CLOUDFLARE_API_TOKEN --repo ChaiWithJai/annotated-canvas
+gh secret delete CLOUDFLARE_ACCOUNT_ID --repo ChaiWithJai/annotated-canvas --env production
+gh secret delete CLOUDFLARE_API_TOKEN --repo ChaiWithJai/annotated-canvas --env production
+gh variable delete CLOUDFLARE_DEPLOY_ENABLED --repo ChaiWithJai/annotated-canvas
 ```
+
+## Final Verification
+
+Final checks after teardown:
+
+```bash
+npm exec -- wrangler pages project list
+npm exec -- wrangler deployments list --config apps/api/wrangler.production.jsonc
+npm exec -- wrangler d1 list
+npm exec -- wrangler kv namespace list
+npm exec -- wrangler queues list
+npm exec -- wrangler r2 bucket list
+gh secret list --repo ChaiWithJai/annotated-canvas
+gh secret list --repo ChaiWithJai/annotated-canvas --env production
+gh variable list --repo ChaiWithJai/annotated-canvas
+```
+
+Observed results:
+
+- Pages project list returned no `annotated-canvas` project.
+- Worker deployment lookup returned `This Worker does not exist on your account.`
+- D1 list returned `[]`.
+- KV namespace list returned no namespaces.
+- Queue list returned no queues.
+- R2 bucket list returned no buckets.
+- GitHub Cloudflare secret and variable lists returned no Cloudflare entries.
+- `https://annotated-canvas.pages.dev` returned Cloudflare `530`.
+- `https://annotated-canvas-api.jaybhagat841.workers.dev/api/health` returned Cloudflare `404`.
 
 ## Revival Checklist
 
