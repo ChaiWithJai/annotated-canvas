@@ -169,7 +169,9 @@ export function App() {
 
     try {
       const authorizationUrl = await startAuth(provider, window.location.href);
-      window.location.href = authorizationUrl;
+      if (authorizationUrl) {
+        window.location.href = authorizationUrl;
+      }
     } catch (error) {
       setAuthError(authErrorMessage(error, provider));
     } finally {

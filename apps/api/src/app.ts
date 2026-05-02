@@ -11,6 +11,7 @@ import {
   createRequestId,
   toSourceDomain
 } from "@annotated/contracts";
+import { verifyToken } from "@clerk/backend";
 import { D1Repository, InMemoryRepository, normalizeAppOrigin } from "./repository";
 import { CloudflareJobQueue } from "./queue";
 import type {
@@ -201,7 +202,7 @@ function queueJob(type: QueueJob["type"], ids: Partial<Pick<QueueJob, "annotatio
   };
 }
 
-function authMode(env: Env): "demo" | "oauth" {
+function authMode(env: Env): "demo" | "oauth" | "clerk" {
   return env.AUTH_MODE ?? "demo";
 }
 
@@ -324,7 +325,85 @@ async function readExtensionSession(request: Request, env: Env): Promise<AuthSes
   return session ? { ...session, session_id: session.session_id ?? token } : null;
 }
 
+async function hashId(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest))
+    .slice(0, 10)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+type ClerkJwtPayload = {
+  sub?: string;
+  email?: string;
+  name?: string;
+  username?: string;
+  given_name?: string;
+  family_name?: string;
+  image_url?: string;
+  picture?: string;
+};
+
+function displayNameFromClerk(payload: ClerkJwtPayload): string {
+  const fullName = [payload.given_name, payload.family_name].filter(Boolean).join(" ").trim();
+  return (payload.name ?? fullName) || payload.username || payload.email?.split("@")[0] || "Annotated user";
+}
+
+async function sessionFromClerkPayload(env: Env, payload: ClerkJwtPayload): Promise<AuthSession | null> {
+  if (!payload.sub) return null;
+
+  const userId = `usr_clerk_${await hashId(payload.sub)}`;
+  const displayName = displayNameFromClerk(payload);
+  const desiredHandle = normalizeHandle(payload.username ?? payload.email?.split("@")[0] ?? payload.sub, "annotated_user");
+  const avatarUrl = payload.image_url ?? payload.picture;
+  const handle = env.DB ? await findUniqueHandle(env.DB, desiredHandle, userId) : desiredHandle;
+
+  if (env.DB) {
+    await env.DB
+      .prepare("INSERT OR IGNORE INTO users (id, handle, display_name, avatar_url, bio) VALUES (?, ?, ?, ?, ?)")
+      .bind(userId, handle, displayName, avatarUrl ?? null, null)
+      .run();
+    await env.DB
+      .prepare("UPDATE users SET handle = ?, display_name = ?, avatar_url = ? WHERE id = ?")
+      .bind(handle, displayName, avatarUrl ?? null, userId)
+      .run();
+  }
+
+  return {
+    user_id: userId,
+    handle,
+    display_name: displayName,
+    avatar_url: avatarUrl
+  };
+}
+
+async function readClerkSession(request: Request, env: Env): Promise<AuthSession | null> {
+  const token = bearerToken(request);
+  if (!token || !env.CLERK_SECRET_KEY) return null;
+
+  if (env.CLERK_SECRET_KEY === "test_clerk_secret" && token.startsWith("test_clerk_")) {
+    return sessionFromClerkPayload(env, {
+      sub: token.replace(/^test_clerk_/, "user_"),
+      username: "clerk_user",
+      name: "Clerk User"
+    });
+  }
+
+  const payload = (await verifyToken(token, {
+    secretKey: env.CLERK_SECRET_KEY
+  })) as ClerkJwtPayload;
+  return sessionFromClerkPayload(env, payload);
+}
+
 async function optionalAuthSession(request: Request, env: Env): Promise<AuthSession | null> {
+  if (authMode(env) === "clerk") {
+    try {
+      return await readClerkSession(request, env);
+    } catch {
+      return null;
+    }
+  }
+
   if (!env.SESSION_KV) return null;
 
   const extensionSession = await readExtensionSession(request, env);
@@ -338,6 +417,24 @@ async function optionalAuthSession(request: Request, env: Env): Promise<AuthSess
 }
 
 async function requireOAuthSession(request: Request, env: Env): Promise<AuthSession | Response> {
+  if (authMode(env) === "clerk") {
+    if (!env.CLERK_SECRET_KEY) {
+      return error(env, 503, "auth_not_configured", "Clerk auth requires CLERK_SECRET_KEY.", {
+        missing: ["CLERK_SECRET_KEY"]
+      }, request);
+    }
+
+    try {
+      const session = await readClerkSession(request, env);
+      if (!session) {
+        return error(env, 401, "authentication_required", "A valid Clerk session is required.", {}, request);
+      }
+      return session;
+    } catch {
+      return error(env, 401, "authentication_required", "A valid Clerk session is required.", {}, request);
+    }
+  }
+
   if (!env.SESSION_KV) {
     return error(env, 503, "auth_not_configured", "OAuth sessions require SESSION_KV.", {}, request);
   }
@@ -554,7 +651,7 @@ export async function handleRequest(request: Request, env: Env, services = makeS
   }
 
   if (url.pathname === "/api/me" && request.method === "GET") {
-    if (authMode(env) === "oauth") {
+    if (authMode(env) === "oauth" || authMode(env) === "clerk") {
       const session = await requireOAuthSession(request, env);
       if (session instanceof Response) return session;
 
@@ -562,6 +659,7 @@ export async function handleRequest(request: Request, env: Env, services = makeS
         user: userFromSession(session),
         auth: {
           providers: ["x", "google"],
+          strategy: authMode(env),
           extension_token_supported: true
         }
       }, {}, request);

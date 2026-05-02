@@ -644,6 +644,77 @@ describe("API router regression coverage", () => {
     });
   });
 
+  it("uses Clerk bearer sessions for /api/me and publish attribution when AUTH_MODE=clerk", async () => {
+    const clerkEnv: Env = {
+      ...env,
+      AUTH_MODE: "clerk",
+      CLERK_SECRET_KEY: "test_clerk_secret",
+      DB: createAuthDb()
+    };
+
+    const me = await handleRequest(
+      request("/api/me", {
+        headers: {
+          Authorization: "Bearer test_clerk_123"
+        }
+      }),
+      clerkEnv,
+      { repository, jobs }
+    );
+    expect(me.status).toBe(200);
+    const mePayload = await body(me);
+    expect(mePayload.auth.strategy).toBe("clerk");
+    expect(mePayload.user).toMatchObject({
+      handle: "clerk_user",
+      display_name: "Clerk User"
+    });
+
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-clerk-auth",
+          Authorization: "Bearer test_clerk_123"
+        },
+        body: JSON.stringify({
+          clip: fixtures.annotations[1].clip,
+          commentary: { kind: "text", text: "Authenticated Clerk publish." },
+          visibility: "public",
+          client_context: { surface: "web", capture_method: "selection" }
+        })
+      }),
+      clerkEnv,
+      { repository, jobs }
+    );
+    const payload = await body(response);
+    expect(response.status).toBe(201);
+    expect(payload.annotation.author).toMatchObject({
+      display_name: "Clerk User"
+    });
+    expect(payload.annotation.author.handle).toMatch(/^clerk_user/);
+  });
+
+  it("fails Clerk auth closed when the Worker secret is missing", async () => {
+    const response = await handleRequest(
+      request("/api/me", {
+        headers: {
+          Authorization: "Bearer test_clerk_123"
+        }
+      }),
+      {
+        ...env,
+        AUTH_MODE: "clerk"
+      },
+      { repository, jobs }
+    );
+    const payload = await body(response);
+
+    expect(response.status).toBe(503);
+    expect(payload.error.code).toBe("auth_not_configured");
+    expect(payload.error.details.missing).toContain("CLERK_SECRET_KEY");
+  });
+
   it("deletes the session on logout when session KV is available", async () => {
     const sessionKv = createSessionKv({
       "session:ses_valid": JSON.stringify({

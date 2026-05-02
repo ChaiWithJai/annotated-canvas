@@ -111,7 +111,8 @@ describe("Annotated web shell", () => {
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/me"), {
-        credentials: "include"
+        credentials: "include",
+        headers: {}
       });
     });
     expect(screen.getByText("Signed out")).toBeInTheDocument();

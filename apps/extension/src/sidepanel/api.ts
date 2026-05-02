@@ -63,6 +63,20 @@ export interface AuthState {
   user: ExtensionUser | null;
 }
 
+type AuthTokenProvider = () => Promise<string | null>;
+type AuthRedirectHandler = (provider: "google" | "x") => Promise<void>;
+
+let authTokenProvider: AuthTokenProvider | null = null;
+let authRedirectHandler: AuthRedirectHandler | null = null;
+
+export function setAuthTokenProvider(provider: AuthTokenProvider | null): void {
+  authTokenProvider = provider;
+}
+
+export function setAuthRedirectHandler(handler: AuthRedirectHandler | null): void {
+  authRedirectHandler = handler;
+}
+
 function normalizeApiBase(value: string): string {
   return value.trim().replace(/\/+$/, "");
 }
@@ -105,12 +119,30 @@ export async function clearAuthState(): Promise<void> {
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
+  const clerkToken = authTokenProvider ? await authTokenProvider() : null;
+  if (clerkToken) return { Authorization: `Bearer ${clerkToken}` };
+
   const { token } = await readAuthState();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function refreshAuthState(): Promise<AuthState> {
   const apiBase = await readApiBase();
+  const clerkToken = authTokenProvider ? await authTokenProvider() : null;
+  if (clerkToken) {
+    const response = await fetch(`${apiBase}/api/me`, {
+      headers: {
+        Authorization: `Bearer ${clerkToken}`
+      }
+    });
+    if (!response.ok) return { token: null, user: null };
+    const payload = (await response.json()) as { user?: ExtensionUser };
+    return {
+      token: "clerk",
+      user: payload.user ?? null
+    };
+  }
+
   const current = await readAuthState();
   if (!current.token) return current;
 
@@ -138,6 +170,11 @@ export async function refreshAuthState(): Promise<AuthState> {
 }
 
 export async function connectAuth(provider: "google" | "x" = "google"): Promise<AuthState> {
+  if (authRedirectHandler) {
+    await authRedirectHandler(provider);
+    return refreshAuthState();
+  }
+
   const apiBase = await readApiBase();
   const returnTo = typeof globalThis.chrome?.runtime?.getURL === "function"
     ? chrome.runtime.getURL("sidepanel.html?auth=1")

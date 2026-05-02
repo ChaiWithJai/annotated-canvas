@@ -35,6 +35,9 @@
     "cf:deploy:production": "node scripts/cloudflare/setup-production.mjs --apply --deploy --pages"
   },
   "dependencies": {
+    "@clerk/backend": "^3.4.4",
+    "@clerk/chrome-extension": "^3.1.21",
+    "@clerk/react": "^6.5.0",
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
