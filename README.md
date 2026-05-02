@@ -2,6 +2,15 @@
 
 Annotated Canvas is a Chrome side panel and web client for clipping exact moments from web media, adding commentary, and publishing public annotations that always link back to the original source.
 
+## Project Status
+
+This project was sunset on 2026-05-02. It reached a deployed MVP, but it is not a complete bounty submission because production sign-in was never configured end to end. The production Cloudflare deploy gate is disabled with `CLOUDFLARE_DEPLOY_ENABLED=false`, and the remaining Cloudflare resources are inventoried for owner-controlled archive or teardown.
+
+Read the shutdown documents before reviving or deleting anything:
+
+- `docs/project-sunset-postmortem.md`
+- `docs/cloudflare-sunset.md`
+
 The product is based on the `Annotated` bounty context captured in this repository. The MVP intentionally stores third-party clips by reference, not by re-hosting third-party media bytes.
 
 ## Submission Status
