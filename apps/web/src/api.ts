@@ -22,6 +22,20 @@ export type ViewerSession = {
   };
 };
 
+type AuthTokenProvider = () => Promise<string | null>;
+type AuthRedirectHandler = (provider: AuthProvider, returnTo: string) => Promise<void>;
+
+let authTokenProvider: AuthTokenProvider | null = null;
+let authRedirectHandler: AuthRedirectHandler | null = null;
+
+export function setAuthTokenProvider(provider: AuthTokenProvider | null): void {
+  authTokenProvider = provider;
+}
+
+export function setAuthRedirectHandler(handler: AuthRedirectHandler | null): void {
+  authRedirectHandler = handler;
+}
+
 type ErrorEnvelope = {
   error?: {
     code?: string;
@@ -56,9 +70,15 @@ async function requestError(response: Response, fallback: string): Promise<ApiRe
   }
 }
 
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = authTokenProvider ? await authTokenProvider() : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function loadCurrentViewer(): Promise<ViewerSession> {
   const response = await fetch(`${API_BASE}/api/me`, {
-    credentials: "include"
+    credentials: "include",
+    headers: await authHeaders()
   });
 
   if (response.status === 401 || response.status === 403) return { user: null };
@@ -72,6 +92,11 @@ export async function loadCurrentViewer(): Promise<ViewerSession> {
 }
 
 export async function startAuth(provider: AuthProvider, returnTo: string): Promise<string> {
+  if (authRedirectHandler) {
+    await authRedirectHandler(provider, returnTo);
+    return "";
+  }
+
   const search = new URLSearchParams({ return_to: returnTo });
   const response = await fetch(`${API_BASE}/api/auth/${provider}/start?${search.toString()}`, {
     method: "GET"
@@ -207,7 +232,8 @@ export async function publishWebAnnotation(input: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `web-${Date.now()}`
+      "Idempotency-Key": `web-${Date.now()}`,
+      ...(await authHeaders())
     },
     body: JSON.stringify(payload)
   });

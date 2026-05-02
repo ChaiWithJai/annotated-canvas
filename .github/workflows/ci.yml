@@ -140,6 +140,8 @@ jobs:
         run: npm run build:web
         env:
           VITE_API_BASE_URL: ${{ steps.deploy-worker.outputs.deployment-url }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_CLERK_SYNC_HOST: https://annotated-canvas.pages.dev
 
       - name: Deploy Pages
         id: deploy-pages

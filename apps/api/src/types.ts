@@ -52,7 +52,8 @@ export interface OAuthProviderClient {
 export interface Env {
   APP_ORIGIN?: string;
   SERVICE_MODE?: string;
-  AUTH_MODE?: "demo" | "oauth";
+  AUTH_MODE?: "demo" | "oauth" | "clerk";
+  CLERK_SECRET_KEY?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   X_CLIENT_ID?: string;

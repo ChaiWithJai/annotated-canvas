@@ -13,7 +13,7 @@
   "vars": {
     "APP_ORIGIN": "https://annotated-canvas.pages.dev",
     "SERVICE_MODE": "production",
-    "AUTH_MODE": "oauth"
+    "AUTH_MODE": "clerk"
   },
   "d1_databases": [
     {
