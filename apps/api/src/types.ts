@@ -69,7 +69,11 @@ export interface Repository {
   findAnnotation(id: string): Promise<AnnotationResource | null>;
   findUserByHandle(handle: string): Promise<UserResource | null>;
   listUserAnnotations(handle: string): Promise<AnnotationResource[]>;
-  publishAnnotation(input: AnnotationCreate, idempotencyKey: string): Promise<AnnotationResource>;
+  publishAnnotation(
+    input: AnnotationCreate,
+    idempotencyKey: string,
+    author?: AnnotationResource["author"]
+  ): Promise<AnnotationResource>;
   createClaim(input: ClaimCreate, idempotencyKey?: string): Promise<ClaimResource>;
   findClaim(id: string): Promise<ClaimResource | null>;
   listClaimEvents(claimId: string): Promise<ClaimEventResource[]>;

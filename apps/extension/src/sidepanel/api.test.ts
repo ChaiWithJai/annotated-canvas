@@ -2,10 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixtures, type AnnotationResource } from "@annotated/contracts";
 import {
   PRODUCTION_API_BASE,
+  clearAuthState,
+  connectAuth,
   publishAnnotation,
   readApiBase,
+  readAuthState,
   readCaptureDraft,
   readPendingCapture,
+  refreshAuthState,
   saveApiBase,
   saveCaptureDraft
 } from "./api";
@@ -24,15 +28,24 @@ function annotationResponse(id: string): Response {
 
 function stubChromeStorage(initialValues: Record<string, unknown> = {}) {
   const storage = new Map<string, unknown>(Object.entries(initialValues));
+  const readKey = (key: string) => ({ [key]: storage.get(key) });
+  const readKeys = (keys: string[]) => Object.fromEntries(keys.map((key) => [key, storage.get(key)]));
   vi.stubGlobal("chrome", {
+    runtime: {
+      getURL: vi.fn((path: string) => `chrome-extension://extension-id/${path}`)
+    },
+    identity: {
+      launchWebAuthFlow: vi.fn(async () => "chrome-extension://extension-id/sidepanel.html?auth=1")
+    },
     storage: {
       local: {
-        get: vi.fn(async (key: string) => ({ [key]: storage.get(key) })),
+        get: vi.fn(async (key: string | string[]) => (Array.isArray(key) ? readKeys(key) : readKey(key))),
         set: vi.fn(async (value: Record<string, unknown>) => {
           Object.entries(value).forEach(([key, nextValue]) => storage.set(key, nextValue));
         }),
-        remove: vi.fn(async (key: string) => {
-          storage.delete(key);
+        remove: vi.fn(async (key: string | string[]) => {
+          const keys = Array.isArray(key) ? key : [key];
+          keys.forEach((item) => storage.delete(item));
         })
       }
     }
@@ -244,6 +257,104 @@ describe("extension publish API", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
       `${PRODUCTION_API_BASE}/api/annotations`
     );
+  });
+
+  it("sends the extension bearer token when publishing as a connected account", async () => {
+    stubChromeStorage({
+      authToken: "ext_connected"
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(annotationResponse("ann_auth"));
+
+    await publishAnnotation({
+      context: {
+        source_url: "https://example.com/article",
+        title: "Example article",
+        selection_text: "Selected text"
+      },
+      commentary: "Authenticated extension publish.",
+      captureKind: "text"
+    });
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(request.headers).toMatchObject({
+      Authorization: "Bearer ext_connected"
+    });
+  });
+
+  it("connects through Chrome identity, stores the handoff token, and refreshes the profile", async () => {
+    const storage = stubChromeStorage();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ authorization_url: "https://accounts.google.com/o/oauth2/v2/auth" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ token: "ext_token", token_type: "Bearer" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ user: { id: "usr_oauth", handle: "mira", display_name: "Mira OAuth" } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ user: { id: "usr_oauth", handle: "mira", display_name: "Mira OAuth" } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+    await expect(connectAuth("google")).resolves.toMatchObject({
+      token: "ext_token",
+      user: {
+        handle: "mira"
+      }
+    });
+    expect(storage.get("authToken")).toBe("ext_token");
+    expect(chrome.identity.launchWebAuthFlow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        interactive: true
+      })
+    );
+
+    await expect(refreshAuthState()).resolves.toMatchObject({
+      token: "ext_token",
+      user: {
+        handle: "mira"
+      }
+    });
+    expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+      headers: {
+        Authorization: "Bearer ext_token"
+      }
+    });
+  });
+
+  it("clears the stored extension token when profile refresh fails", async () => {
+    const storage = stubChromeStorage({
+      authToken: "ext_expired",
+      authUser: { id: "usr_oauth", handle: "mira", display_name: "Mira OAuth" }
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("expired", { status: 401 }));
+
+    await expect(refreshAuthState()).resolves.toEqual({
+      token: null,
+      user: null
+    });
+    expect(storage.has("authToken")).toBe(false);
+    expect(storage.has("authUser")).toBe(false);
+
+    await clearAuthState();
+    await expect(readAuthState()).resolves.toEqual({
+      token: null,
+      user: null
+    });
   });
 
   it("clears stale pending selected-text captures after reading them once", async () => {

@@ -9,6 +9,8 @@ import {
 export const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
 export const PRODUCTION_API_BASE = "https://annotated-canvas-api.jaybhagat841.workers.dev";
 const API_BASE_STORAGE_KEY = "apiBaseUrl";
+const AUTH_TOKEN_STORAGE_KEY = "authToken";
+const AUTH_USER_STORAGE_KEY = "authUser";
 const PENDING_CAPTURE_STORAGE_KEY = "pendingCapture";
 const CAPTURE_DRAFT_STORAGE_KEY = "captureDraft";
 
@@ -49,6 +51,18 @@ export interface PublishAnnotationResult {
   annotation: AnnotationResource;
 }
 
+export interface ExtensionUser {
+  id: string;
+  handle: string;
+  display_name: string;
+  avatar_url?: string;
+}
+
+export interface AuthState {
+  token: string | null;
+  user: ExtensionUser | null;
+}
+
 function normalizeApiBase(value: string): string {
   return value.trim().replace(/\/+$/, "");
 }
@@ -73,6 +87,104 @@ export async function saveApiBase(value: string): Promise<string> {
     });
   }
   return normalized || DEFAULT_API_BASE;
+}
+
+export async function readAuthState(): Promise<AuthState> {
+  if (!globalThis.chrome?.storage?.local) return { token: null, user: null };
+  const result = await chrome.storage.local.get([AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY]);
+  return {
+    token: typeof result[AUTH_TOKEN_STORAGE_KEY] === "string" ? result[AUTH_TOKEN_STORAGE_KEY] : null,
+    user: (result[AUTH_USER_STORAGE_KEY] as ExtensionUser | undefined) ?? null
+  };
+}
+
+export async function clearAuthState(): Promise<void> {
+  if (globalThis.chrome?.storage?.local) {
+    await chrome.storage.local.remove([AUTH_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY]);
+  }
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { token } = await readAuthState();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function refreshAuthState(): Promise<AuthState> {
+  const apiBase = await readApiBase();
+  const current = await readAuthState();
+  if (!current.token) return current;
+
+  const response = await fetch(`${apiBase}/api/me`, {
+    headers: {
+      Authorization: `Bearer ${current.token}`
+    }
+  });
+  if (!response.ok) {
+    await clearAuthState();
+    return { token: null, user: null };
+  }
+
+  const payload = (await response.json()) as { user?: ExtensionUser };
+  const next = {
+    token: current.token,
+    user: payload.user ?? current.user
+  };
+  if (globalThis.chrome?.storage?.local) {
+    await chrome.storage.local.set({
+      [AUTH_USER_STORAGE_KEY]: next.user
+    });
+  }
+  return next;
+}
+
+export async function connectAuth(provider: "google" | "x" = "google"): Promise<AuthState> {
+  const apiBase = await readApiBase();
+  const returnTo = typeof globalThis.chrome?.runtime?.getURL === "function"
+    ? chrome.runtime.getURL("sidepanel.html?auth=1")
+    : globalThis.location.href;
+  const search = new URLSearchParams({ return_to: returnTo });
+  const start = await fetch(`${apiBase}/api/auth/${provider}/start?${search.toString()}`, {
+    credentials: "include"
+  });
+  if (!start.ok) throw new Error("auth_start_failed");
+  const startPayload = (await start.json()) as { authorization_url?: string };
+  if (!startPayload.authorization_url) throw new Error("auth_start_failed");
+
+  if (typeof globalThis.chrome?.identity?.launchWebAuthFlow === "function") {
+    await chrome.identity.launchWebAuthFlow({
+      url: startPayload.authorization_url,
+      interactive: true
+    });
+  } else {
+    globalThis.open(startPayload.authorization_url, "_blank", "noopener,noreferrer");
+  }
+
+  const tokenResponse = await fetch(`${apiBase}/api/auth/extension-token`, {
+    method: "POST",
+    credentials: "include"
+  });
+  if (!tokenResponse.ok) throw new Error("extension_token_failed");
+  const tokenPayload = (await tokenResponse.json()) as { token?: string };
+  if (!tokenPayload.token) throw new Error("extension_token_failed");
+
+  const meResponse = await fetch(`${apiBase}/api/me`, {
+    headers: {
+      Authorization: `Bearer ${tokenPayload.token}`
+    }
+  });
+  if (!meResponse.ok) throw new Error("auth_profile_failed");
+  const mePayload = (await meResponse.json()) as { user?: ExtensionUser };
+  const next = {
+    token: tokenPayload.token,
+    user: mePayload.user ?? null
+  };
+  if (globalThis.chrome?.storage?.local) {
+    await chrome.storage.local.set({
+      [AUTH_TOKEN_STORAGE_KEY]: next.token,
+      [AUTH_USER_STORAGE_KEY]: next.user
+    });
+  }
+  return next;
 }
 
 export async function readActiveTabContext(): Promise<PageCaptureContext | null> {
@@ -130,7 +242,8 @@ async function uploadAudioCommentary(audioBlob: Blob): Promise<string> {
   const response = await fetch(`${apiBase}/api/uploads/audio-commentary`, {
     method: "POST",
     headers: {
-      "Content-Type": audioBlob.type || "audio/webm"
+      "Content-Type": audioBlob.type || "audio/webm",
+      ...(await authHeaders())
     },
     body: audioBlob
   });
@@ -199,7 +312,8 @@ export async function publishAnnotation(options: PublishOptions): Promise<Publis
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Idempotency-Key": `extension-${Date.now()}`
+      "Idempotency-Key": `extension-${Date.now()}`,
+      ...(await authHeaders())
     },
     body: JSON.stringify(payload)
   });
