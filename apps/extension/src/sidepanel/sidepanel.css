@@ -358,6 +358,24 @@ body {
   justify-self: start;
 }
 
+.account-panel {
+  border-top: 1px solid var(--ac-border);
+  padding-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.account-panel strong {
+  color: var(--ac-text);
+  font-size: 13px;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .sidepanel-footer {
   border-top: 1px solid var(--ac-border);
   padding: 14px 20px 18px;

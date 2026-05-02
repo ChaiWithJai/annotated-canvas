@@ -585,6 +585,65 @@ describe("API router regression coverage", () => {
     });
   });
 
+  it("accepts a bearer extension token for /api/me and attributes extension publishes to that user", async () => {
+    const sessionKv = createSessionKv({
+      "extension_token:ext_valid": JSON.stringify({
+        user_id: "usr_oauth",
+        provider: "google",
+        session_id: "ses_valid",
+        handle: "oauth-user",
+        display_name: "OAuth User"
+      })
+    });
+    const oauthEnv: Env = {
+      ...env,
+      AUTH_MODE: "oauth",
+      SESSION_KV: sessionKv
+    };
+
+    const me = await handleRequest(
+      request("/api/me", {
+        headers: {
+          Authorization: "Bearer ext_valid"
+        }
+      }),
+      oauthEnv,
+      { repository, jobs }
+    );
+    expect(me.status).toBe(200);
+    expect((await body(me)).user).toMatchObject({
+      id: "usr_oauth",
+      handle: "oauth-user"
+    });
+
+    const response = await handleRequest(
+      request("/api/annotations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "publish-key-extension-auth",
+          Authorization: "Bearer ext_valid"
+        },
+        body: JSON.stringify({
+          clip: fixtures.annotations[1].clip,
+          commentary: { kind: "text", text: "Authenticated extension publish." },
+          visibility: "public",
+          client_context: { surface: "extension", capture_method: "selection" }
+        })
+      }),
+      oauthEnv,
+      { repository, jobs }
+    );
+
+    const payload = await body(response);
+    expect(response.status).toBe(201);
+    expect(payload.annotation.author).toMatchObject({
+      id: "usr_oauth",
+      handle: "oauth-user",
+      display_name: "OAuth User"
+    });
+  });
+
   it("deletes the session on logout when session KV is available", async () => {
     const sessionKv = createSessionKv({
       "session:ses_valid": JSON.stringify({
@@ -638,6 +697,23 @@ describe("API router regression coverage", () => {
     expect(callback.status).toBe(302);
     expect(callback.headers.get("Location")).toBe("https://annotated-canvas.pages.dev");
     expect(callback.headers.get("Set-Cookie")).toContain("SameSite=None; Secure");
+  });
+
+  it("allows chrome-extension return_to URLs for extension OAuth handoff without opening arbitrary web redirects", async () => {
+    const productionEnv: Env = {
+      ...env,
+      APP_ORIGIN: "https://annotated-canvas.pages.dev",
+      SESSION_KV: createSessionKv()
+    };
+
+    const start = await body(
+      await handleRequest(
+        request("/api/auth/google/start?return_to=chrome-extension://extension-id/sidepanel.html?auth=1"),
+        productionEnv,
+        { repository, jobs }
+      )
+    );
+    expect(start.authorization_url).toContain("return_to=chrome-extension%3A%2F%2Fextension-id%2Fsidepanel.html%3Fauth%3D1");
   });
 
   it("serves p50 user profile, annotations, and follow contract routes", async () => {

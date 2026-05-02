@@ -18,13 +18,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_API_BASE,
   PRODUCTION_API_BASE,
+  clearAuthState,
+  connectAuth,
   readApiBase,
+  refreshAuthState,
   publishAnnotation,
   readActiveTabContext,
+  readAuthState,
   readCaptureDraft,
   readPendingCapture,
   saveApiBase,
   saveCaptureDraft,
+  type AuthState,
   type CaptureDraft,
   type PublishAnnotationResult,
   type PageCaptureContext
@@ -54,6 +59,8 @@ export function SidePanel() {
   const [pageContext, setPageContext] = useState<PageCaptureContext | null>(null);
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [settingsStatus, setSettingsStatus] = useState<string | null>(null);
+  const [authState, setAuthState] = useState<AuthState>({ token: null, user: null });
+  const [authStatus, setAuthStatus] = useState<string | null>(null);
   const [savedDraft, setSavedDraft] = useState<CaptureDraft | null>(null);
   const [draftStatus, setDraftStatus] = useState<string | null>(null);
   const [publishedAnnotation, setPublishedAnnotation] = useState<PublishAnnotationResult["annotation"] | null>(
@@ -94,6 +101,8 @@ export function SidePanel() {
   useEffect(() => {
     void readApiBase().then(setApiBaseUrl);
     void readCaptureDraft().then(setSavedDraft);
+    void readAuthState().then(setAuthState);
+    void refreshAuthState().then(setAuthState);
   }, []);
 
   function parseTimeInput(value: string): number {
@@ -186,6 +195,24 @@ export function SidePanel() {
     const nextApiBase = await saveApiBase(apiBaseUrl);
     setApiBaseUrl(nextApiBase);
     setSettingsStatus("Saved.");
+  }
+
+  async function connectAccount(provider: "google" | "x") {
+    setAuthStatus(`Starting ${provider === "google" ? "Google" : "X"} sign-in...`);
+    setError(null);
+    try {
+      const next = await connectAuth(provider);
+      setAuthState(next);
+      setAuthStatus(next.user ? `Signed in as @${next.user.handle}.` : "Signed in.");
+    } catch {
+      setAuthStatus("Sign-in is not configured yet. You can still publish to the public demo feed.");
+    }
+  }
+
+  async function disconnectAccount() {
+    await clearAuthState();
+    setAuthState({ token: null, user: null });
+    setAuthStatus("Signed out.");
   }
 
   async function saveDraft() {
@@ -337,6 +364,28 @@ export function SidePanel() {
             Save settings
           </Button>
           {settingsStatus ? <span>{settingsStatus}</span> : null}
+
+          <div className="account-panel">
+            <div>
+              <strong>{authState.user ? `@${authState.user.handle}` : "Account"}</strong>
+              <p>{authState.user ? authState.user.display_name : "Connect before publishing as yourself."}</p>
+            </div>
+            {authState.token ? (
+              <Button tone="secondary" type="button" onClick={() => void disconnectAccount()}>
+                Sign out
+              </Button>
+            ) : (
+              <div className="account-actions">
+                <Button tone="secondary" type="button" onClick={() => void connectAccount("google")}>
+                  Sign in with Google
+                </Button>
+                <Button tone="secondary" type="button" onClick={() => void connectAccount("x")}>
+                  Sign in with X
+                </Button>
+              </div>
+            )}
+            {authStatus ? <span>{authStatus}</span> : null}
+          </div>
         </section>
       ) : mode === "drafts" ? (
         <section className="draft-pane">
@@ -390,7 +439,7 @@ export function SidePanel() {
         {error ? <p className="sidepanel-error">{error}</p> : null}
         <div className="sync-row">
           <UserCircle size={16} aria-hidden="true" />
-          <span>Signed out: production publishes use the demo API author until extension OAuth handoff lands.</span>
+          <span>{authState.user ? `Publishing as @${authState.user.handle}` : "Signed out: publish uses the demo author."}</span>
         </div>
         <Button tone="primary" onClick={publish} disabled={status === "publishing"}>
           <Send size={16} aria-hidden="true" />

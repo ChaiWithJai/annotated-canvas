@@ -290,6 +290,7 @@ function parseAuthSession(value: string): AuthSession | null {
 
     return {
       user_id: parsed.user_id,
+      session_id: typeof parsed.session_id === "string" ? parsed.session_id : undefined,
       provider: parsed.provider === "x" || parsed.provider === "google" ? parsed.provider : undefined,
       handle: typeof parsed.handle === "string" ? parsed.handle : undefined,
       display_name: typeof parsed.display_name === "string" ? parsed.display_name : undefined,
@@ -300,22 +301,56 @@ function parseAuthSession(value: string): AuthSession | null {
   }
 }
 
+function bearerToken(request: Request): string | null {
+  const authorization = request.headers.get("Authorization");
+  const match = authorization?.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+async function readSessionById(env: Env, sessionId: string): Promise<AuthSession | null> {
+  const sessionPayload = await env.SESSION_KV?.get(`session:${sessionId}`);
+  if (!sessionPayload) return null;
+  return parseAuthSession(sessionPayload);
+}
+
+async function readExtensionSession(request: Request, env: Env): Promise<AuthSession | null> {
+  const token = bearerToken(request);
+  if (!token || !env.SESSION_KV) return null;
+
+  const tokenPayload = await env.SESSION_KV.get(`extension_token:${token}`);
+  if (!tokenPayload) return null;
+
+  const session = parseAuthSession(tokenPayload);
+  return session ? { ...session, session_id: session.session_id ?? token } : null;
+}
+
+async function optionalAuthSession(request: Request, env: Env): Promise<AuthSession | null> {
+  if (!env.SESSION_KV) return null;
+
+  const extensionSession = await readExtensionSession(request, env);
+  if (extensionSession) return extensionSession;
+
+  const sessionId = parseCookie(request, "annotated_session");
+  if (!sessionId) return null;
+
+  const session = await readSessionById(env, sessionId);
+  return session ? { ...session, session_id: sessionId } : null;
+}
+
 async function requireOAuthSession(request: Request, env: Env): Promise<AuthSession | Response> {
   if (!env.SESSION_KV) {
     return error(env, 503, "auth_not_configured", "OAuth sessions require SESSION_KV.", {}, request);
   }
+
+  const extensionSession = await readExtensionSession(request, env);
+  if (extensionSession) return extensionSession;
 
   const sessionId = parseCookie(request, "annotated_session");
   if (!sessionId) {
     return error(env, 401, "authentication_required", "A valid session is required.", {}, request);
   }
 
-  const sessionPayload = await env.SESSION_KV.get(`session:${sessionId}`);
-  if (!sessionPayload) {
-    return error(env, 401, "authentication_required", "A valid session is required.", {}, request);
-  }
-
-  const session = parseAuthSession(sessionPayload);
+  const session = await readSessionById(env, sessionId);
   if (!session) {
     return error(env, 401, "authentication_required", "A valid session is required.", {}, request);
   }
@@ -329,7 +364,7 @@ function resolveReturnTo(env: Env, rawReturnTo: string | null): string {
 
   try {
     const candidate = new URL(rawReturnTo, appOrigin);
-    if (candidate.origin === appOrigin) return candidate.toString();
+    if (candidate.origin === appOrigin || candidate.protocol === "chrome-extension:") return candidate.toString();
   } catch {
     return appOrigin;
   }
@@ -791,7 +826,12 @@ export async function handleRequest(request: Request, env: Env, services = makeS
       if (audioAssetError) return audioAssetError;
     }
 
-    const annotation = await services.repository.publishAnnotation(parsed.data, idempotencyKey);
+    const session = await optionalAuthSession(request, env);
+    const annotation = await services.repository.publishAnnotation(
+      parsed.data,
+      idempotencyKey,
+      session ? userFromSession(session) : undefined
+    );
     await services.jobs.send(queueJob("feed_fanout", { annotation_id: annotation.id }));
     return json(env, { annotation }, { status: 201 });
   }

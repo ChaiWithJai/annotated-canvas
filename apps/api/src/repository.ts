@@ -37,6 +37,10 @@ function cloneAnnotation(annotation: AnnotationResource): AnnotationResource {
   return structuredClone(annotation);
 }
 
+function authorOrCurrentUser(author?: AnnotationResource["author"]): AnnotationResource["author"] {
+  return author ?? fixtures.currentUser;
+}
+
 export class InMemoryRepository implements Repository {
   private readonly appOrigin: string;
   private annotations = new Map<string, AnnotationResource>();
@@ -93,19 +97,24 @@ export class InMemoryRepository implements Repository {
       .map(cloneAnnotation);
   }
 
-  async publishAnnotation(input: AnnotationCreate, idempotencyKey: string): Promise<AnnotationResource> {
+  async publishAnnotation(
+    input: AnnotationCreate,
+    idempotencyKey: string,
+    author?: AnnotationResource["author"]
+  ): Promise<AnnotationResource> {
     const existingId = this.idempotency.get(`publish:${idempotencyKey}`);
     if (existingId) {
       const existing = await this.findAnnotation(existingId);
       if (existing) return existing;
     }
 
+    const resolvedAuthor = authorOrCurrentUser(author);
     const id = `ann_${crypto.randomUUID()}`;
     const timestamp = now();
     const annotation: AnnotationResource = {
       id,
-      author_id: fixtures.currentUser.id,
-      author: fixtures.currentUser,
+      author_id: resolvedAuthor.id,
+      author: resolvedAuthor,
       clip: input.clip,
       commentary: input.commentary,
       visibility: input.visibility,
@@ -494,7 +503,11 @@ export class D1Repository implements Repository {
     return result.results.map((row) => annotationFromRow(row, this.appOrigin));
   }
 
-  async publishAnnotation(input: AnnotationCreate, idempotencyKey: string): Promise<AnnotationResource> {
+  async publishAnnotation(
+    input: AnnotationCreate,
+    idempotencyKey: string,
+    author?: AnnotationResource["author"]
+  ): Promise<AnnotationResource> {
     const existing = await this.db
       .prepare("SELECT resource_id FROM mutation_idempotency_keys WHERE scope = 'publish' AND idempotency_key = ?")
       .bind(idempotencyKey)
@@ -563,7 +576,7 @@ export class D1Repository implements Repository {
       )
       .bind(
         annotationId,
-        this.viewerId,
+        author?.id ?? this.viewerId,
         clipId,
         input.commentary.kind,
         input.commentary.kind === "text" ? input.commentary.text : (input.commentary.text ?? null),
