@@ -31,7 +31,7 @@ Use this as the script before recording the demo video. It reconciles `bounty.tx
 | Wrong API URL | Side panel Settings lets reviewer switch Local/Production without source edits. | Settings screenshot after reopen. |
 | No selected text | Selected-text proof must show exact browser selection, preview, payload, and stored quote. | Screenshot plus request/response. |
 | Reversed or over-90 range | Side panel blocks publish before network; API/contracts reject direct invalid payload. | Error screenshot and no `POST /api/annotations`. |
-| Audio storage unavailable | UI/docs disclose R2 `intent-created`; do not claim durable audio playback. | Upload response and #26 link. |
+| Audio storage regression | Audio upload should return `storage=r2`, `status=stored`; fetching the asset URL should return bytes. | R2 smoke on #26 plus upload/fetch command output. |
 | Claim submitted | Claim is recorded as review intake and does not automatically remove the annotation. | Claim id/status and permalink still visible. |
 
 ## Krug Guardrails
@@ -42,10 +42,11 @@ Use this as the script before recording the demo video. It reconciles `bounty.tx
 - Do not hide the Chrome Web Store gap; local unpacked install is part of the review path.
 - Keep source links and claim actions visible on every annotation surface.
 - Keep recovery copy near the failed action.
+- Let cold visitors browse the feed before asking them to install the extension.
 
 ## Testing Trophy
 
 - **Static/contract**: source URL required, media duration <= 90 seconds, audio asset id required, idempotency required.
 - **Integration**: feed, permalink, comments, claims, auth failure, extension-token handoff.
 - **Browser smoke**: home/feed/permalink screenshots, extension Settings persistence, p50 publish, selected-text proof, media-time proof, over-90 no-network proof.
-- **Manual proof**: Chrome unpacked extension installation and microphone prompt behavior.
+- **Manual proof**: Chrome unpacked extension installation, R2 audio upload/fetch, and microphone prompt behavior.

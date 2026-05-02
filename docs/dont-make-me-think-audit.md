@@ -31,6 +31,7 @@ This audit turns the book's principles into product guardrails for Annotated Can
 | Extension footer | `Connect accounts for sync` and `Publish to Canvas` were vague. | Footer now says `Signed out` and `Publish annotation`. |
 | Cloudflare setup docs | Docs still led with local Wrangler login despite the user's GitHub-first deployment preference. | Cloudflare docs now frame GitHub Actions as the production deploy control plane and Wrangler as local/resource/fallback tooling. |
 | Bounty submission docs | Readiness was split across issue comments and a long packet, making reviewers infer what was complete. | `docs/bounty-gap-audit.md` and `docs/submission-packet.md` now use explicit status buckets and issue-linked p50/p95 proof requirements. |
+| Cold traffic home | The home route explained the product but still made visitors infer the full job from docs and issue evidence. | Home now leads with browse-first onboarding, real extension smoke screenshots, product trust checks, and the return path from side panel publish to web permalink. |
 
 ## Follow-Up Checks
 
@@ -38,3 +39,4 @@ This audit turns the book's principles into product guardrails for Annotated Can
 - Revisit the claim modal when real moderation states exist.
 - Re-run a screen-reader pass after the source-pill label change.
 - Before external submission, read only the status bucket and acceptance tables first; if a reviewer cannot classify a requirement in under a few seconds, the packet needs another pass.
+- Re-run the cold-traffic journey after every deploy: home -> feed -> permalink -> extension guide -> publish -> returned permalink.

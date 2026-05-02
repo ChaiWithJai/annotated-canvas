@@ -97,6 +97,9 @@ describe("Annotated web shell", () => {
     renderAt("/home");
 
     expect(screen.getByRole("heading", { name: /save the exact moment/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /browse first/i })).toBeInTheDocument();
+    expect(screen.getByAltText(/selected text ready to publish/i)).toBeInTheDocument();
+    expect(screen.getByAltText(/published selected-text annotation/i)).toBeInTheDocument();
     expect(screen.getByText("Sign in with Google")).toBeInTheDocument();
     expect(screen.getByText("View public feed")).toBeInTheDocument();
     expect(screen.getByText("Extension install guide")).toBeInTheDocument();

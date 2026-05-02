@@ -19,7 +19,7 @@ Status buckets used below:
 - **Approved API-level smoke**: `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4` is the stable public smoke annotation for the production API and web permalink.
 - **Extension p95 complete**: #30 and #23 are closed after PR #43. The unpacked extension p95 smoke proved production API-base persistence, current-tab publish, exact selected-text capture, exact media-time payload seconds, >90-second no-network rejection, stored API reads, and public permalinks.
 - **Auth blocker**: #24 still needs real Google/X apps, secrets, token exchange, user/session creation, and extension handoff. Production correctly fails closed with `auth_not_configured` today.
-- **Audio/240p blocker**: #26 still needs durable recorded-audio storage plus an explicit owned-media 240p/sub-480p policy. Third-party media remains source-linked by reference, and audio upload currently stops at `intent-created`.
+- **Audio/240p status**: #26 now has production R2 upload/fetch proof for recorded audio. The remaining media blocker is owned-video 240p/sub-480p processing or an explicit exclusion from the submitted MVP claim.
 - **Final submission requirement**: the human submitter can submit now with the #24/#26 limitations disclosed, or wait for real OAuth and durable audio/media processing before claiming full bounty coverage.
 
 ## Submission Links
@@ -191,7 +191,7 @@ curl -X POST http://localhost:8787/api/claims \
 | Prompt for start/end or text section | Extension capture controls, selected-text context, and exact UI-to-payload media seconds are evidenced. | **Working now** with p95 extension proof. |
 | Max clip size 90 seconds | Contracts/API reject over-90 media references; extension p95 smoke shows over-90 publish blocked before network. | **Working now**. |
 | Downgrade clip to 240p or below 480p | Third-party media is source-linked by reference; owned uploads need processing policy. | **Not yet implemented**; product/legal decision remains #26. |
-| Text or recorded audio commentary | Text commentary works; audio upload endpoint returns an intent without R2. | **Deployed but limited**; durable audio storage/finalize remains #26. |
+| Text or recorded audio commentary | Text commentary works; production R2 audio upload returns `storage=r2`, stored bytes fetch by asset id, and an audio annotation publish smoke passed. | **Working now at API/storage level**; web/extension playback polish can improve the demo, owned-video remains #26. |
 | Users can leave comments | Comment resources and claim/feed docs reflect local completion. | **Working now**; public smoke created `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`. |
 | File a claim button | Claim button/modal and `POST /api/claims` notice intake. | **Working now**; public smoke created `claim_36899790-f89f-4add-9744-046b5b46c3f3` and annotation remained public. |
 | All content links to original source | `source_url` required for third-party clips. | **Working now** for third-party contracts/API. |
@@ -207,8 +207,8 @@ These notes are the reviewer handoff for the remaining open tickets plus recentl
 | Closed #22 Cloudflare deployment | Closed after GitHub Actions deploy-from-main and public smoke passed; latest proof is run `25216210247`. | Local Wrangler proved capability; CI deploy now proves repeatability. | Public web/API smoke works. | GitHub-deployed smoke passed from head SHA `afa7e3dda7645c875785546f904798e449339ec2`. |
 | Closed #23 Capture journey | Closed after PR #43 merged and deploy run `25216210247` passed. | Functional fields are not proof unless payloads match user intent. | One normal annotation publishes. | Exact quote/timecode/source integrity are proven. |
 | #24 OAuth | Google/X provider exchange, sessions, and extension handoff work with real credentials. | Honest not-configured failure is safer than fake account creation. | Signed-out and provider-start behavior is visible. | Invalid/replayed state, logout, and anonymous extension-token rejection are tested. |
-| #26 Audio/240p | Recorded audio persists and owned-media 240p/sub-480p policy is implemented or explicitly excluded. | Third-party references and owned media processing are different rights surfaces. | Text commentary and audio intent behavior are clear. | Stored audio, upload validation, and owned-video rendition policy are enforceable. |
-| #28 Submission package | The external post uses current URLs, smoke IDs, and known limitations. | The packet is a reviewer script plus truth-in-advertising checklist. | Reviewer can run the demo without reading code. | Reviewer can reproduce highest-risk claims from linked evidence. |
+| #26 Audio/240p | Owned-media 240p/sub-480p policy is implemented or explicitly excluded; audio playback UX is polished if claimed in demo. | Third-party references and owned media processing are different rights surfaces. | Text commentary and R2 audio upload/fetch behavior are clear. | Stored audio, upload validation, and owned-video rendition policy are enforceable or excluded. |
+| Closed #28 Submission package | The external post uses current URLs, smoke IDs, and known limitations. | The packet is a reviewer script plus truth-in-advertising checklist. | Reviewer can run the demo without reading code. | Reviewer can reproduce highest-risk claims from linked evidence. |
 | Closed #30 Extension smoke | Closed after PR #43 merged and deploy run `25216210247` passed. | MV3 side-panel proof must happen in Chrome, not only in unit tests. | Side panel saves API base and publishes one annotation. | Selected text, media current time, over-90 no-network rejection, and audio fallback are evidenced. |
 | Closed #38 Reviewer journey | Closed after the happy/sad path and Krug pass landed. | Reviewer onboarding is a product surface, not a doc appendix. | Reviewer can discover, install/use, publish, and return to the feed from one script. | Auth, extension install, invalid range, audio/R2, and claim recovery states are understandable at the point of action. |
 
@@ -219,8 +219,6 @@ Open issue snapshot for `ChaiWithJai/annotated-canvas`:
 - #21 `Epic: Bounty gap audit and submission readiness`
 - #24 `Epic: Real X/Google auth and extension handoff`
 - #26 `Epic: Audio commentary and 240p media policy`
-- #28 `Task: Prepare final bounty submission package`
-
 Recently completed issue evidence relevant to the packet:
 
 - #22 `Epic: Cloudflare CLI production setup and deployment`
@@ -229,6 +227,7 @@ Recently completed issue evidence relevant to the packet:
 - #30 `Task: Local Chrome extension install and bounty smoke verification`
 - #23 `Epic: Complete extension and web capture journey`
 - #38 `P0: Codify reviewer journey happy/sad paths and Krug pass before demo video`
+- #28 `Task: Prepare final bounty submission package`
 
 Local Chrome evidence recorded in #30:
 
@@ -245,7 +244,7 @@ Production extension p50/p95 proof recorded in PR #43:
 - p95 selected text: `ann_c6fa89cc-9c1a-4a73-9e37-d6bd08a20ae6` stores the exact quote `This domain is for use in documentation examples without needing permission. Avoid use in operations.`.
 - p95 media time: `ann_e537cae5-15f0-4dff-808b-219e134a801e` stores UI-entered `00:00:05` to `00:00:52` as `start_seconds=5`, `end_seconds=52`, `duration_seconds=47`.
 - p95 over-90 rejection: `00:00:00` to `00:01:31` showed `Clip length must be 90 seconds or less.` with `postCountAfterClick=0`.
-- p95 audio/R2 limitation: production `POST /api/uploads/audio-commentary` returns `upload.status: "intent-created"`; durable storage remains #26.
+- p95 audio/R2 update: after R2 enablement, production `POST /api/uploads/audio-commentary` returns `storage: "r2"` and `status: "stored"`; `GET /api/uploads/audio-commentary/:asset_id` returns bytes; audio annotation publish smoke created `ann_ae514c71-b065-4981-8279-f3844f5d4121`.
 - Evidence summary: `https://raw.githubusercontent.com/ChaiWithJai/annotated-canvas/afa7e3dda7645c875785546f904798e449339ec2/docs/audit-assets/extension-smoke-p95/summary.json`.
 
 Production smoke evidence recorded on May 1, 2026:
@@ -258,20 +257,20 @@ Production smoke evidence recorded on May 1, 2026:
 - `GET /api/feed` includes `ann_d586ad40-058a-42c1-b6d7-8e0e691cfae4`.
 - `GET /api/me` from the Pages origin returned `401 authentication_required`, which is the expected signed-out state.
 - Google and X auth start endpoints returned `503 auth_not_configured`, listing the missing provider client IDs/secrets.
-- Earlier production API smoke created comment `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7`, claim notice `claim_36899790-f89f-4add-9744-046b5b46c3f3`, and `POST /api/uploads/audio-commentary` returned `status: intent-created`.
-- Important boundary: extension p95 is now recorded, but it does not make real Google/X OAuth or durable audio/owned-media processing complete.
+- Earlier production API smoke created comment `cmt_73c82db2-d4db-4661-b92e-84b12b4e74e7` and claim notice `claim_36899790-f89f-4add-9744-046b5b46c3f3`.
+- Important boundary: extension p95 and R2 audio storage are now recorded, but they do not make real Google/X OAuth or owned-media 240p processing complete.
 
 ## Known Blockers Before External Submission
 
 - Real Google/X OAuth needs provider client IDs/secrets, callback configuration, token exchange, and production-safe sessions. Tracked by #24.
-- Audio commentary recording/finalize and 240p owned-media policy remain unresolved. Tracked by #26.
-- R2 is not enabled in the Cloudflare account yet. Production omits the R2 binding, so audio upload storage remains blocked by #26.
+- Audio commentary storage/finalize is implemented at API/storage level with R2. Playback UX polish and 240p owned-media policy remain unresolved. Tracked by #26.
+- R2 is enabled, bucket `annotated-canvas-media` exists, and production has the `MEDIA_BUCKET` binding.
 - Chrome Web Store distribution is not part of the local MVP; reviewers load `dist/extension` unpacked.
-- Human submission to `https://annotated.lovable.app` remains #28.
+- Human submission to `https://annotated.lovable.app` remains the final submitter action.
 
 Submission language to use if posting before all blockers close:
 
-> Annotated Canvas is live as a source-linked MVP with GitHub-deployed public Pages/Worker URLs, public feed, permalinks, comments, claim filing, text commentary, web URL capture, API-level and extension-level 90-second validation, and unpacked Chrome extension p95 proof for current-tab, selected-text, and media-time capture. The remaining disclosed gaps are real Google/X OAuth credentials and token exchange, durable recorded-audio storage, and owned-media 240p processing policy.
+> Annotated Canvas is live as a source-linked MVP with public Pages/Worker URLs, public feed, permalinks, comments, claim filing, text commentary, R2-backed recorded-audio storage, web URL capture, API-level and extension-level 90-second validation, and unpacked Chrome extension p95 proof for current-tab, selected-text, and media-time capture. The remaining disclosed gaps are real Google/X OAuth credentials and token exchange plus owned-media 240p processing policy.
 
 Dependency gate map: `output/reports/gas-town/dependency-gate-map.md`.
 
@@ -279,7 +278,6 @@ External inputs required before this packet can claim full bounty coverage:
 
 - Google OAuth app credentials for `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/google/callback`.
 - X OAuth app credentials for `https://annotated-canvas-api.jaybhagat841.workers.dev/api/auth/x/callback`.
-- R2 enablement for bucket `annotated-canvas-media`, or an approved alternate storage path for recorded audio commentary.
 - Product/legal decision for third-party reference-only media versus owned-video 240p/sub-480p processing.
 
 ## Final Submission Checklist
@@ -301,7 +299,7 @@ External inputs required before this packet can claim full bounty coverage:
 - [x] Every public annotation links back to its original source.
 - [x] Comments and engagement are demonstrated on a public annotation.
 - [x] `File a claim` records a notice and does not automatically remove content.
-- [x] Audio commentary limitation is documented with upload evidence and the production `intent-created` fallback.
+- [x] Audio commentary R2 storage is documented with upload/fetch/publish evidence.
 - [ ] Demo Google and X auth behavior is documented, or production OAuth is fully configured.
 - [x] Reviewer journey happy/sad paths and Krug pass from #38 are merged before filming.
 - [ ] Known limitations are copied into the bounty submission without hiding bounty-critical gaps.

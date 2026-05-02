@@ -332,6 +332,30 @@ export function App() {
               Capture a quote or short media range, add your take, and publish it with a link back
               to the original page.
             </p>
+            <section className="journey-hero" aria-label="How the reviewer journey works">
+              <div className="journey-copy">
+                <p className="eyebrow">Cold traffic path</p>
+                <h3>Browse first. Install only when you are ready to publish.</h3>
+                <p>
+                  Visitors can inspect the public feed and source links before touching Chrome
+                  extension setup. Reviewers can then load the unpacked extension and publish from a
+                  real source tab.
+                </p>
+                <div className="journey-metrics" aria-label="Product trust checks">
+                  <span>Source links</span>
+                  <span>90s clips</span>
+                  <span>Claim flow</span>
+                  <span>R2 audio</span>
+                </div>
+              </div>
+              <figure className="journey-shot">
+                <img
+                  src="/audit-assets/selected-text-ready-to-publish.png"
+                  alt="Annotated Canvas Chrome side panel with selected text ready to publish"
+                />
+                <figcaption>Local extension capture screen used in the reviewer path.</figcaption>
+              </figure>
+            </section>
             <div className="marketing-actions">
               <button
                 type="button"
@@ -378,17 +402,28 @@ export function App() {
               <ol className="review-path__steps">
                 <li>
                   <span>1</span>
-                  <p>Open the public feed and an annotation permalink.</p>
+                  <p>Open the public feed and inspect a source-linked annotation.</p>
                 </li>
                 <li>
                   <span>2</span>
-                  <p>Build `dist/extension`, load it unpacked, and save the production API URL.</p>
+                  <p>Build dist/extension, load it unpacked, and save the production API URL.</p>
                 </li>
                 <li>
                   <span>3</span>
-                  <p>Publish from a source tab, then verify the permalink, comment, and claim paths.</p>
+                  <p>Publish from a source tab, then verify permalink, comments, and claims.</p>
                 </li>
               </ol>
+            </section>
+            <section className="journey-return" aria-label="Return path proof">
+              <img
+                src="/audit-assets/selected-text-published.png"
+                alt="Annotated Canvas Chrome side panel showing a published selected-text annotation"
+              />
+              <div>
+                <p className="eyebrow">Return point</p>
+                <h3>The side panel gives the annotation id after publish.</h3>
+                <p>That id resolves on the web feed and permalink, where the source link and claim action stay visible.</p>
+              </div>
             </section>
             <div className="feed-list marketing-preview">
               {feedItems.slice(0, 2).map((annotation) => (

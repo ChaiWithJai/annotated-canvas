@@ -57,6 +57,8 @@ Above the fold:
 
 First viewport should include a visible feed preview, not only marketing copy. Use 2-3 annotation cards with source domain, clip type, author, commentary excerpt, and `File a claim` affordance.
 
+Show real product proof before asking visitors to install anything. The implemented home route uses `/audit-assets/selected-text-ready-to-publish.png` and `/audit-assets/selected-text-published.png` so cold visitors can visually understand the side-panel capture and return path.
+
 Sections:
 
 - `How it works`: Capture, Comment, Publish.
@@ -231,6 +233,19 @@ Footer:
 5. Signup uses Google or X.
 6. After signup, redirect to feed with prompt to install/open extension.
 7. Extension page explains local unpacked loading for MVP testers and Chrome Web Store install for production.
+
+## Implemented Cold-Traffic Flow
+
+Current route: `/home`.
+
+1. Visitor lands on a page that says `Save the exact moment. Keep the source one click away.`
+2. Visitor sees product trust checks before install: source links, 90-second clips, claim flow, and R2 audio.
+3. Visitor sees a real extension screenshot with selected text ready to publish.
+4. Visitor can browse the public feed without signing in.
+5. If sign-in is unavailable, recovery copy sends the visitor to the feed and unpacked extension guide.
+6. Visitor sees the publish return point: the side panel gives an annotation id, and the web permalink keeps source and claim actions visible.
+
+Krug guardrail: do not force a new visitor to understand Chrome extension setup before they know why the feed and permalink matter.
 
 ## Feed Viewing Funnel
 

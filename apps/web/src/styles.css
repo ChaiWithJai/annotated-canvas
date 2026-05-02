@@ -209,6 +209,83 @@
   font-size: 17px;
 }
 
+.journey-hero,
+.journey-return {
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: var(--ac-surface);
+}
+
+.journey-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(260px, 1.12fr);
+  gap: 18px;
+  padding: 16px;
+  align-items: center;
+}
+
+.journey-copy {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.journey-copy h3,
+.journey-return h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.18;
+}
+
+.journey-copy p,
+.journey-return p {
+  margin: 0;
+  color: var(--ac-muted);
+  font-size: 14px;
+}
+
+.journey-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.journey-metrics span {
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: #fafafa;
+  padding: 5px 8px;
+  color: var(--ac-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.journey-shot {
+  margin: 0;
+  min-width: 0;
+}
+
+.journey-shot img,
+.journey-return img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  background: #f5f5f5;
+  object-fit: cover;
+}
+
+.journey-shot img {
+  aspect-ratio: 16 / 10;
+  object-position: right center;
+}
+
+.journey-shot figcaption {
+  margin-top: 8px;
+  color: var(--ac-muted);
+  font-size: 12px;
+}
+
 .marketing-actions {
   display: flex;
   flex-wrap: wrap;
@@ -329,6 +406,11 @@
   font-weight: 700;
 }
 
+.review-path__steps svg {
+  width: 14px;
+  height: 14px;
+}
+
 .review-path__steps p {
   margin: 1px 0 0;
   color: var(--ac-muted);
@@ -338,6 +420,19 @@
 
 .marketing-preview {
   margin-top: 8px;
+}
+
+.journey-return {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px;
+  align-items: center;
+}
+
+.journey-return img {
+  aspect-ratio: 4 / 3;
+  object-position: right center;
 }
 
 .empty-state,
@@ -608,6 +703,11 @@
     gap: 0 24px;
   }
 
+  .journey-hero,
+  .journey-return {
+    grid-template-columns: 1fr;
+  }
+
   .profile-view {
     grid-template-columns: 1fr;
   }
@@ -639,6 +739,11 @@
 
   .rail--right {
     grid-template-columns: 1fr;
+  }
+
+  .journey-copy h3,
+  .journey-return h3 {
+    font-size: 19px;
   }
 
   .header-auth {
