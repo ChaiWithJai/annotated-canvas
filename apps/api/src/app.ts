@@ -243,6 +243,27 @@ function oauthConfigError(env: Env, request: Request, provider: AuthProvider, mi
   }, request);
 }
 
+function clerkSetupError(env: Env, request: Request, provider: AuthProvider): Response {
+  return error(env, 503, "auth_not_configured", "Sign-in is handled by Clerk and is not configured in this client build.", {
+    provider,
+    strategy: "clerk",
+    missing: ["VITE_CLERK_PUBLISHABLE_KEY"]
+  }, request);
+}
+
+function legacyOAuthCallbackRedirect(env: Env, provider: AuthProvider): Response {
+  const redirectUrl = new URL("/signup", normalizeAppOrigin(env.APP_ORIGIN));
+  redirectUrl.searchParams.set("auth_error", "clerk_required");
+  redirectUrl.searchParams.set("provider", provider);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: redirectUrl.toString(),
+      "Cache-Control": "no-store"
+    }
+  });
+}
+
 function parseCookie(request: Request, name: string): string | null {
   const cookieHeader = request.headers.get("Cookie");
   if (!cookieHeader) return null;
@@ -684,6 +705,10 @@ export async function handleRequest(request: Request, env: Env, services = makeS
     const returnTo = resolveReturnTo(env, url.searchParams.get("return_to"));
     const state = `state_${crypto.randomUUID()}`;
     const mode = authMode(env);
+    if (mode === "clerk") {
+      return clerkSetupError(env, request, provider.data);
+    }
+
     const credentials = getProviderCredentials(env, provider.data);
     const missing = mode === "oauth" ? missingOAuthConfig(env, provider.data) : [];
     if (missing.length > 0) {
@@ -725,6 +750,10 @@ export async function handleRequest(request: Request, env: Env, services = makeS
     const provider = AuthProviderSchema.safeParse(authCallbackMatch[1]);
     if (!provider.success) {
       return error(env, 400, "unsupported_auth_provider", "Auth provider must be x or google.");
+    }
+
+    if (authMode(env) === "clerk") {
+      return legacyOAuthCallbackRedirect(env, provider.data);
     }
 
     const state = url.searchParams.get("state");
